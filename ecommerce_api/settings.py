@@ -40,22 +40,49 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework_simplejwt',
     'rest_framework',
-    'store',
-    
+    'django_filters',
     'corsheaders',
+    
+    # Custom apps
+    'store', # Later we delete it
 ]
 
 
 REST_FRAMEWORK = {
+    # 1. Authentication
+    # We only use JWT. This ensures your API is stateless and secure.
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 2. For Web Browsers / DRF Admin UI (Stateful)
+        'rest_framework.authentication.SessionAuthentication',
     ),
+
+    # 2. Permissions
+    # By default, anyone can Read (GET), but only Authenticated users can Write (POST/PUT/DELETE)
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
+
+    # 3. Pagination (Crucial for performance)
+    # Instead of loading 5,000 products at once, it sends 20 per page.
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+
+    # 4. Filtering
+    # This enables the ?category=mobile logic globally
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ),
+    
+    # Optional: Date format for your JSON responses (YYYY-MM-DD)
+    'DATE_INPUT_FORMATS': ["%Y-%m-%d"],
+    
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser', # <--- Crucial for files
+    ],
 }
-
-
 
 
 
