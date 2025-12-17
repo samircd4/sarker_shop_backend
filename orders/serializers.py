@@ -5,7 +5,10 @@ from products.models import Product
 from accounts.models import Address
 from .models import Order, OrderItem, Cart, CartItem, Checkout, PaymentInfo, OrderStatus
 
-class SimpleProductSerializer(serializers.ModelSerializer):
+from drf_spectacular.utils import extend_schema_field
+
+
+class OrderProductSerializer(serializers.ModelSerializer):
     """
     Used inside Orders to show minimal product info.
     """
@@ -15,38 +18,48 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'price', 'wholesale_price', 'image', 'slug']
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_image(self, obj):
         if obj.image:
             return obj.image.url
         return None
+
 
 class OrderStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderStatus
         fields = ['status_code', 'display_name']
 
+
 class PaymentInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentInfo
-        fields = ['transaction_id', 'is_paid', 'payment_method', 'payment_date']
+        fields = ['transaction_id', 'is_paid',
+                  'payment_method', 'payment_date']
+
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = SimpleProductSerializer(read_only=True)
+    product = OrderProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.all(), source='product', write_only=True
     )
+    subtotal = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'product_id', 'quantity', 'price', 'subtotal']
+        fields = ['id', 'product', 'product_id',
+                  'quantity', 'price', 'subtotal']
         read_only_fields = ['price', 'subtotal']
+
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     address = AddressSerializer(read_only=True)
-    
+
     # Flattened fields for backward compatibility / ease of use
-    status = serializers.CharField(source='order_status.display_name', read_only=True)
+    status = serializers.CharField(
+        source='order_status.display_name', read_only=True)
     payment = PaymentInfoSerializer(source='payment_info', read_only=True)
 
     address_id = serializers.PrimaryKeyRelatedField(
@@ -79,16 +92,16 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             # Create Default Status if needed (or fetch 'pending')
             pending_status, _ = OrderStatus.objects.get_or_create(
-                status_code='pending', 
+                status_code='pending',
                 defaults={'display_name': 'Pending'}
             )
-            
+
             # Create Payment Info placeholder
             payment_info = PaymentInfo.objects.create()
 
             # Create Order
             order = Order.objects.create(
-                customer=customer, 
+                customer=customer,
                 order_status=pending_status,
                 payment_info=payment_info,
                 **validated_data
@@ -115,22 +128,25 @@ class OrderSerializer(serializers.ModelSerializer):
 
         return order
 
+
 class CartItemSerializer(serializers.ModelSerializer):
-    product = SimpleProductSerializer(read_only=True)
+    product = OrderProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.all(), source='product', write_only=True
     )
-    
+
     class Meta:
         model = CartItem
         fields = ['id', 'product', 'product_id', 'quantity']
 
+
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Cart
         fields = ['id', 'items', 'created_at']
+
 
 class CheckoutSerializer(serializers.ModelSerializer):
     class Meta:

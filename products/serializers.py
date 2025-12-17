@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 import json
 from accounts.serializers import CustomerSerializer, AddressSerializer
+from drf_spectacular.utils import extend_schema_field
 
 from .models import (
     Category, Brand, Product, ProductImage, ProductSpecification,
@@ -53,6 +54,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'logo',
                   'parent', 'children', 'breadcrumbs']
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_breadcrumbs(self, obj):
         return obj.get_breadcrumbs()
 
@@ -70,6 +72,7 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'price', 'wholesale_price', 'image', 'slug']
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_image(self, obj):
         # Return full URL of the main image
         if obj.image:

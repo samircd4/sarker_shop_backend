@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {% block head %}
+    <title>{{ title|default:"Swagger" }}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {% if favicon_href %}
+    <link rel="icon" href="{{ favicon_href }}" />
+    {% endif %}
+    <link rel="stylesheet" href="{{ swagger_ui_css }}" />
+    <style>
+      html {
+        box-sizing: border-box;
+        overflow-y: scroll;
+      }
+      *,
+      *:after,
+      *:before {
+        box-sizing: inherit;
+      }
+      body {
+        background: #fafafa;
+        margin: 0;
+      }
+
+      /* Custom Header Bar */
+      #django-auth-header {
+        background-color: #1b1b1b;
+        color: white;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: sans-serif;
+        font-size: 14px;
+        border-bottom: 1px solid #333;
+      }
+
+      #django-auth-header .brand {
+        font-weight: bold;
+        color: #89bf04; /* Django Green-ish */
+        font-size: 16px;
+      }
+
+      #django-auth-header .auth-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      #django-auth-header .user-info {
+        color: #ddd;
+      }
+
+      #django-auth-header .user-info strong {
+        color: white;
+      }
+
+      #django-auth-header .btn-auth {
+        padding: 6px 12px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 12px;
+        transition: background 0.2s;
+      }
+
+      #django-auth-header .btn-login {
+        background-color: #417690;
+        color: white;
+      }
+      #django-auth-header .btn-login:hover {
+        background-color: #2c5b75;
+      }
+
+      #django-auth-header .btn-logout {
+        background-color: #ba2121;
+        color: white;
+      }
+      #django-auth-header .btn-logout:hover {
+        background-color: #a41515;
+      }
+
+      /* Adjust Swagger UI topbar if needed */
+      .swagger-ui .topbar {
+        display: none; /* Hide default topbar if you want a cleaner look, or keep it */
+      }
+    </style>
+    {% endblock head %}
+  </head>
+  <body>
+    {% block body %}
+
+    <!-- Custom Auth Header -->
+    <div id="django-auth-header">
+      <div class="brand">Sarker Shop API Docs</div>
+      <div class="auth-controls">
+        {% if request.user.is_authenticated %}
+        <span class="user-info"
+          >Logged in as: <strong>{{ request.user.username }}</strong></span
+        >
+        {% if request.user.is_superuser %}
+        <span
+          style="
+            background: #89bf04;
+            color: black;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+          "
+          >ADMIN</span
+        >
+        {% endif %}
+        <form
+          action="{% url 'rest_framework:logout' %}?next={{ request.path }}"
+          method="post"
+          style="display: inline"
+        >
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="btn-auth btn-logout"
+            style="border: none; cursor: pointer; font-family: inherit"
+          >
+            Django Logout
+          </button>
+        </form>
+        {% else %}
+        <span class="user-info" style="color: #ffaa00"
+          >⚠ Unauthorized (Guest)</span
+        >
+        <a
+          href="/admin/login/?next={{ request.path }}"
+          class="btn-auth btn-login"
+          >Django Login</a
+        >
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="{{ swagger_ui_bundle }}"></script>
+    <script src="{{ swagger_ui_standalone }}"></script>
+
+    {% if script_url %}
+    <script src="{{ script_url }}"></script>
+    {% else %}
+    <script>
+      {% include template_name_js %}
+    </script>
+    {% endif %} {% endblock %}
+  </body>
+</html>

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'corsheaders',
+    'drf_spectacular',
 
     # Custom apps
     'accounts',
@@ -59,6 +60,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         # 2. For Web Browsers / DRF Admin UI (Stateful)
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ),
 
     # 2. Permissions
@@ -86,6 +88,18 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.MultiPartParser',  # <--- Crucial for files
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Sarker Shop API',
+    'DESCRIPTION': 'Comprehensive E-commerce API documentation',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'OAUTH2_PASSWORD_FLOW': {
+        'TOKEN_URL': '/api/token/',
+        'REFRESH_URL': '/api/token/refresh/',
+    },
 }
 
 
@@ -105,7 +119,7 @@ ROOT_URLCONF = 'ecommerce_api.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -176,20 +190,4 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173",  # React (Vite) dev server
-#     "http://localhost:5174",  # React (Vite) dev server
-# ]
-CORS_ALLOW_ALL_ORIGINS = True
-
-
-CORS_ALLOW_HEADERS = [
-    'content-type',
-    'authorization',
-    'accept',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
+LOGIN_URL = '/admin/login/'

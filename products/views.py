@@ -12,6 +12,7 @@ from rest_framework.permissions import (
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Avg, Q
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from .models import (
     Product, Category, Brand,
@@ -33,6 +34,7 @@ from accounts.serializers import CustomerSerializer, AddressSerializer
 # Catalog ViewSets (Public Read, Admin Write)
 # ------------------------------------------------------------------
 
+@extend_schema(tags=['Catalog'])
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all() \
         .select_related('brand', 'category') \
@@ -62,6 +64,15 @@ class ProductViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]
         return [AllowAny()]
 
+    @extend_schema(
+        summary="Suggest Products",
+        description="Autocomplete suggestions for search bar.",
+        parameters=[
+            OpenApiParameter("search", OpenApiTypes.STR,
+                             description="Search term")
+        ],
+        responses={200: OpenApiTypes.OBJECT}
+    )
     @action(detail=False, methods=['get'])
     def suggest(self, request):
         """
@@ -78,6 +89,14 @@ class ProductViewSet(viewsets.ModelViewSet):
                        for p in products]
         return Response(suggestions)
 
+    @extend_schema(
+        summary="Search Products",
+        description="Search products by 'q' query parameter.",
+        parameters=[
+            OpenApiParameter("q", OpenApiTypes.STR, description="Search query")
+        ],
+        responses={200: ProductSerializer(many=True)}
+    )
     @action(detail=False, methods=['get'])
     def search(self, request):
         """
@@ -102,6 +121,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(results, many=True)
         return Response(serializer.data)
 
+    @extend_schema(summary="Featured Products")
     @action(detail=False, methods=['get'])
     def featured(self, request):
         featured = self.filter_queryset(
@@ -113,6 +133,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(featured, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Bestselling Products",
+        description="Returns products marked as bestsellers manually, plus dynamically calculated top sellers from OrderItems."
+    )
     @action(detail=False, methods=['get'])
     def bestsellers(self, request):
         """
@@ -146,6 +170,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bestsellers, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Related Products",
+        description="Returns related products based on manual selection or category."
+    )
     @action(detail=True, methods=['get'])
     def related(self, request, pk=None):
         """
@@ -171,6 +199,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['Catalog'])
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -183,6 +212,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]
         return [AllowAny()]
 
+    @extend_schema(
+        summary="Root Categories",
+        description="Return only top-level categories."
+    )
     @action(detail=False, methods=['get'])
     def roots(self, request):
         """Return only top-level categories"""
@@ -191,6 +224,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['Catalog'])
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer

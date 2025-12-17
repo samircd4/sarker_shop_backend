@@ -1,6 +1,7 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from .models import Review
 from .serializers import ReviewSerializer
 
@@ -17,6 +18,7 @@ class IsReviewOwnerOrReadOnly(BasePermission):
         # obj.customer.user should be compared to request.user
         return obj.customer.user == request.user or request.user.is_staff
 
+@extend_schema(tags=['Reviews'])
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer

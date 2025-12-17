@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Customer, Address
+from drf_spectacular.utils import extend_schema_field
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -29,11 +30,26 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
 
 
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField()
+    token = serializers.CharField()
+
+
 class CustomerSerializer(serializers.ModelSerializer):
     """
     Read/Write customer details.
     """
     username = serializers.CharField(source='user.username', read_only=True)
+
+    is_wholesaler = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
@@ -43,6 +59,10 @@ class CustomerSerializer(serializers.ModelSerializer):
             'is_wholesaler', 'created_at'
         ]
         read_only_fields = ['user', 'customer_type', 'created_at']
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_wholesaler(self, obj):
+        return obj.is_wholesaler
 
 
 class AddressSerializer(serializers.ModelSerializer):
