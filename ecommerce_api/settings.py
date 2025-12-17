@@ -42,9 +42,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'corsheaders',
-    
+
     # Custom apps
-    'store', # Later we delete it
+    'accounts',
+    'orders',
+    'products',
+    'reviews',
+    'api',
 ]
 
 
@@ -73,17 +77,16 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
-    
+
     # Optional: Date format for your JSON responses (YYYY-MM-DD)
     'DATE_INPUT_FORMATS': ["%Y-%m-%d"],
-    
+
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.FormParser',
-        'rest_framework.parsers.MultiPartParser', # <--- Crucial for files
+        'rest_framework.parsers.MultiPartParser',  # <--- Crucial for files
     ],
 }
-
 
 
 MIDDLEWARE = [
