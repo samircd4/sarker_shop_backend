@@ -10,7 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Customer, Address
 from .serializers import (
     RegisterSerializer, CustomerSerializer, AddressSerializer,
-    ChangePasswordSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer
+    ChangePasswordSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,
+    CustomTokenObtainPairSerializer
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
@@ -43,6 +44,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """
     Login View: Extends SimpleJWT.
     """
+    serializer_class = CustomTokenObtainPairSerializer
+
     @extend_schema(
         summary="Obtain JWT Pair",
         description="Takes a set of user credentials and returns an access and refresh JSON web token pair to prove the authentication of those credentials.",

@@ -55,16 +55,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
-    address = AddressSerializer(read_only=True)
+
+    # Address Handling
+    address = AddressSerializer(read_only=True)  # Legacy object display
+    address_id = serializers.PrimaryKeyRelatedField(
+        queryset=Address.objects.all(), source='address', write_only=True, required=False, allow_null=True
+    )
+
+    # Guest / Snapshot Fields
+    email = serializers.EmailField(required=False)
+    full_name = serializers.CharField(required=False)
+    phone = serializers.CharField(required=False)
+    shipping_address = serializers.CharField(required=False)
+    division = serializers.CharField(required=False)
+    district = serializers.CharField(required=False)
+    sub_district = serializers.CharField(required=False)
 
     # Flattened fields for backward compatibility / ease of use
     status = serializers.CharField(
         source='order_status.display_name', read_only=True)
     payment = PaymentInfoSerializer(source='payment_info', read_only=True)
 
-    address_id = serializers.PrimaryKeyRelatedField(
-        queryset=Address.objects.all(), source='address', write_only=True
-    )
     items_input = serializers.ListField(
         child=serializers.DictField(), write_only=True
     )
@@ -77,17 +88,70 @@ class OrderSerializer(serializers.ModelSerializer):
             'total_amount',
             'payment',      # Read-only nested object
             'created_at',
-            'address',      # Full object (Read)
-            'address_id',   # ID only (Write)
+            'address',      # Legacy object (Read)
+            'address_id',   # Legacy ID (Write - Optional)
+
+            # Guest Fields
+            'email', 'full_name', 'phone',
+            'shipping_address', 'division', 'district', 'sub_district',
+
             'items',        # Full objects (Read)
             'items_input'   # List of dicts (Write)
         ]
         read_only_fields = ['total_amount', 'status', 'payment', 'created_at']
 
+    def validate(self, data):
+        user = self.context['request'].user
+
+        # 1. Validate Items
+        if not data.get('items_input'):
+            raise serializers.ValidationError("Order must contain items.")
+
+        # 2. Validate Address Info
+        # If user is anonymous, they MUST provide full address details
+        if not user.is_authenticated:
+            required_fields = ['email', 'full_name', 'phone',
+                               'shipping_address', 'division', 'district']
+            missing = [f for f in required_fields if not data.get(f)]
+            if missing:
+                raise serializers.ValidationError(
+                    f"Guest checkout requires: {', '.join(missing)}")
+
+        # If authenticated, they can use address_id OR provide new details
+        # (Logic handled in create)
+
+        return data
+
     def create(self, validated_data):
         items_data = validated_data.pop('items_input')
         user = self.context['request'].user
-        customer = user.customer
+
+        customer = None
+        is_wholesaler = False
+
+        if user.is_authenticated:
+            customer = user.customer
+            is_wholesaler = customer.is_wholesaler
+
+        # Handle Address Logic
+        # If address_id is provided, copy data from it to snapshot fields
+        address_obj = validated_data.get('address')
+        if address_obj:
+            validated_data['full_name'] = validated_data.get(
+                'full_name') or address_obj.full_name
+            validated_data['phone'] = validated_data.get(
+                'phone') or address_obj.phone
+            validated_data['shipping_address'] = validated_data.get(
+                'shipping_address') or address_obj.address
+            validated_data['division'] = validated_data.get(
+                'division') or address_obj.division
+            validated_data['district'] = validated_data.get(
+                'district') or address_obj.district
+            validated_data['sub_district'] = validated_data.get(
+                'sub_district') or address_obj.sub_district
+            # If authenticated, email might default to user email
+            if not validated_data.get('email') and customer:
+                validated_data['email'] = customer.email
 
         with transaction.atomic():
             # Create Default Status if needed (or fetch 'pending')
@@ -112,7 +176,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 quantity = item.get('quantity', 1)
                 product = Product.objects.get(id=product_id)
 
-                if customer.is_wholesaler and product.wholesale_price > 0:
+                if is_wholesaler and product.wholesale_price > 0:
                     final_price = product.wholesale_price
                 else:
                     final_price = product.price
@@ -124,7 +188,15 @@ class OrderSerializer(serializers.ModelSerializer):
                     price=final_price
                 )
 
-            order.update_total_amount()
+            # Assuming update_total_amount exists on Order model
+            if hasattr(order, 'update_total_amount'):
+                order.update_total_amount()
+            else:
+                # Fallback calculation if method missing
+                total = sum(
+                    item.price * item.quantity for item in order.items.all())
+                order.total_amount = total
+                order.save()
 
         return order
 

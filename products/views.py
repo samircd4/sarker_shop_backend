@@ -135,33 +135,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Bestselling Products",
-        description="Returns products marked as bestsellers manually, plus dynamically calculated top sellers from OrderItems."
+        description="Returns products explicitly marked as 'is_bestseller' in the database."
     )
     @action(detail=False, methods=['get'])
     def bestsellers(self, request):
         """
-        Returns products marked as bestsellers manually, 
-        plus dynamically calculated top sellers from OrderItems.
+        Returns products explicitly marked as 'is_bestseller' in the database.
         """
-        # 1. Manual Bestsellers
-        manual_bestsellers = self.get_queryset().filter(is_bestseller=True)
-
-        # 2. Dynamic: Top 10 by sales volume
-        # We need to import OrderItem locally to avoid circular import issues
-        try:
-            from orders.models import OrderItem
-            top_products = OrderItem.objects.values('product') \
-                .annotate(total_sold=Count('product')) \
-                .order_by('-total_sold')[:10]
-            top_product_ids = [p['product'] for p in top_products]
-            dynamic_bestsellers = self.get_queryset().filter(id__in=top_product_ids)
-        except ImportError:
-            dynamic_bestsellers = self.get_queryset().none()
-
-        # Combine (union might lose duplicates, which is good, but DRF pagination needs queryset)
-        # Using | operator on querysets
-        bestsellers = manual_bestsellers | dynamic_bestsellers
-        bestsellers = bestsellers.distinct()
+        bestsellers = self.get_queryset().filter(is_bestseller=True)
 
         page = self.paginate_queryset(bestsellers)
         if page is not None:

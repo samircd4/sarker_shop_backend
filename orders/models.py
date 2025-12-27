@@ -88,7 +88,19 @@ class Checkout(models.Model):
 
 class Order(models.Model):
     customer = models.ForeignKey(
-        Customer, on_delete=models.CASCADE, related_name='orders')
+        Customer, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+
+    # Guest / Snapshot Address Fields
+    email = models.EmailField(blank=True, null=True)
+    full_name = models.CharField(max_length=200, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    shipping_address = models.TextField(
+        blank=True, null=True, help_text="Street Address")
+    division = models.CharField(max_length=100, blank=True, null=True)
+    district = models.CharField(max_length=100, blank=True, null=True)
+    sub_district = models.CharField(max_length=100, blank=True, null=True)
+
+    # Legacy Link (Optional - keep for authenticated users if needed, or deprecate)
     address = models.ForeignKey(
         Address, on_delete=models.PROTECT, null=True, blank=True)
 
@@ -110,7 +122,9 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Order #{self.id} - {self.customer.name}"
+        customer_name = self.customer.name if self.customer else (
+            self.full_name or "Guest")
+        return f"Order #{self.id} - {customer_name}"
 
     def update_total_amount(self):
         self.total_amount = sum(item.subtotal for item in self.items.all())

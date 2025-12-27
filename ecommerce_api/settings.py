@@ -25,7 +25,17 @@ SECRET_KEY = 'django-insecure-16m5sa@!uf8bl7l91hd_ynkgn$qqij-ar5%-j^i%bp32#7j#=k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = ['192.168.0.100','http://localhost:5173/']
+ALLOWED_HOSTS = ['*']
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://909e3088325f.ngrok-free.app"
+]
+CORS_ALLOW_ALL_ORIGINS = True
+CSRF_TRUSTED_ORIGINS = [
+    'https://kept-castle-dare-awarded.trycloudflare.com'
+]
 
 
 # Application definition
@@ -50,6 +60,11 @@ INSTALLED_APPS = [
     'products',
     'reviews',
     'api',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 
@@ -106,6 +121,7 @@ SPECTACULAR_SETTINGS = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -183,7 +199,23 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
-STATIC_URL = 'static/'
+# 1. The URL prefix for static files
+STATIC_URL = '/static/'
+
+# 2. Where 'collectstatic' will put all your files
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+STORAGES = {
+    # 1. Default storage (for user-uploaded files like product images/orders)
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    # 2. Static files storage (for CSS/JS via WhiteNoise)
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

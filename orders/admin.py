@@ -1,6 +1,11 @@
 from django.contrib import admin
 from django.forms.models import BaseInlineFormSet
-from .models import Order, OrderItem, OrderStatus, PaymentInfo, Cart, Checkout
+from .models import Order, OrderItem, OrderStatus, PaymentInfo, Cart, Checkout, CartItem
+
+
+class CartItemInline(admin.TabularInline):
+    model = CartItem
+    extra = 1
 
 
 class OrderItemInlineFormSet(BaseInlineFormSet):
@@ -21,9 +26,9 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     readonly_fields = ('total_amount',)
     list_display = ('id', 'customer', 'total_amount',
-                    'order_status', 'created_at')
+                    'order_status', 'created_at', 'phone', 'order_status', 'payment_info')
     list_filter = ('order_status', 'created_at')
-    search_fields = ('customer__name', 'customer__email', 'id')
+    search_fields = ('customer__name', 'customer__email', 'id', 'phone')
     inlines = [OrderItemInline]
 
 
@@ -45,6 +50,7 @@ class PaymentInfoAdmin(admin.ModelAdmin):
 class CartAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'session_key', 'created_at', 'updated_at')
     search_fields = ('user__username', 'session_key')
+    inlines = [CartItemInline]
 
 
 @admin.register(Checkout)

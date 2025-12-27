@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema
 def api_root(request, format=None):
     return Response({
         'documentation': reverse('swagger-ui', request=request, format=format),
+        'visual doc': reverse('redoc', request=request, format=format),
         'auth': {
             'register': reverse('auth_register', request=request, format=format),
             'login': reverse('token_obtain_pair', request=request, format=format),

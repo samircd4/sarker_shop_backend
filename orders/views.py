@@ -11,18 +11,46 @@ from .serializers import OrderSerializer, CartSerializer, CheckoutSerializer, Ca
 @extend_schema(tags=['Orders'])
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes = [permissions.IsAuthenticated] # Overridden by get_permissions
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['order_status__status_code', 'payment_info__is_paid']
     ordering_fields = ['created_at', 'total_amount']
 
+    @extend_schema(
+        summary="Create Order",
+        description="""
+        Create a new order.
+        
+        **For Authenticated Users:**
+        - Can use existing saved address via `address_id` OR provide new address details.
+        
+        **For Guest Users:**
+        - Must provide all address fields: `email`, `full_name`, `phone`, `shipping_address`, `division`, `district`.
+        """,
+        responses={201: OrderSerializer}
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return Order.objects.none()
+
+        # Check if user is authenticated before accessing customer
+        if not self.request.user.is_authenticated:
+            return Order.objects.none()
+
         if self.request.user.is_staff:
             return Order.objects.all()
+
         if hasattr(self.request.user, 'customer'):
             return Order.objects.filter(customer=self.request.user.customer)
+
         return Order.objects.none()
 
     @extend_schema(
@@ -115,6 +143,68 @@ class CartViewSet(viewsets.ModelViewSet):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         cart.items.all().delete()
         return Response({'status': 'cart cleared'}, status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=['Cart Items'])
+class CartItemViewSet(viewsets.ModelViewSet):
+    """
+    Manage Cart Items:
+    - GET /api/cart-items/ : List all items in cart
+    - POST /api/cart-items/ : Add item to cart
+    - GET /api/cart-items/{id}/ : Retrieve specific item
+    - PATCH /api/cart-items/{id}/ : Update quantity
+    - DELETE /api/cart-items/{id}/ : Remove item from cart
+    """
+    serializer_class = CartItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return CartItem.objects.none()
+        return CartItem.objects.filter(cart__user=self.request.user)
+
+    def perform_create(self, serializer):
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        product = serializer.validated_data['product']
+        quantity = serializer.validated_data.get('quantity', 1)
+
+        # Check if item exists
+        item, created = CartItem.objects.get_or_create(
+            cart=cart, product=product,
+            defaults={'quantity': quantity}
+        )
+
+        if not created:
+            item.quantity += quantity
+            item.save()
+            # We need to update the serializer instance to point to the updated item
+            # But perform_create doesn't return response.
+            # We can't easily swap the instance here for the response.
+            # However, ModelViewSet calls serializer.save() which calls perform_create.
+            # We can override create() instead.
+            pass
+
+    def create(self, request, *args, **kwargs):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        product = serializer.validated_data['product']
+        quantity = serializer.validated_data['quantity']
+
+        # Check if item exists
+        item, created = CartItem.objects.get_or_create(
+            cart=cart, product=product,
+            defaults={'quantity': quantity}
+        )
+
+        if not created:
+            item.quantity += quantity
+            item.save()
+
+        # Return the updated/created item
+        return Response(self.get_serializer(item).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=['Checkout'])

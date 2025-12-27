@@ -1,3 +1,4 @@
+from enum import unique
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -14,7 +15,7 @@ class Customer(models.Model):
     
     # Customer Details
     name = models.CharField(max_length=200, help_text="Full Name")
-    email = models.EmailField(help_text="Contact Email") # Can be different from User login email
+    email = models.EmailField(help_text="Contact Email", unique=True) # Can be different from User login email
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     customer_type = models.CharField(max_length=20, choices=CUSTOMER_TYPES, default='retail')
     
