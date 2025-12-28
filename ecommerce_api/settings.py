@@ -25,17 +25,49 @@ SECRET_KEY = 'django-insecure-16m5sa@!uf8bl7l91hd_ynkgn$qqij-ar5%-j^i%bp32#7j#=k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS = ['192.168.0.100','http://localhost:5173/']
-ALLOWED_HOSTS = ['*']
+# =========================
+# ALLOWED HOSTS
+# =========================
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "192.168.0.100",
+    "pill-cfr-postings-guarantees.trycloudflare.com",
+    "task-win-sell-distance.trycloudflare.com",
+]
+
+
+# =========================
+# CORS (Frontend Access)
+# =========================
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://909e3088325f.ngrok-free.app"
+    "https://pill-cfr-postings-guarantees.trycloudflare.com",
+    "https://task-win-sell-distance.trycloudflare.com",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False   # 🔴 IMPORTANT
+
+
+# =========================
+# CSRF (Admin / Cookies)
+# =========================
 CSRF_TRUSTED_ORIGINS = [
-    'https://kept-castle-dare-awarded.trycloudflare.com'
+    "https://pill-cfr-postings-guarantees.trycloudflare.com",
+    "https://task-win-sell-distance.trycloudflare.com",
 ]
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+
+# =========================
+# Cloudflare / Proxy Fix
+# =========================
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 
 # Application definition

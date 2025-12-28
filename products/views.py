@@ -41,6 +41,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         .prefetch_related('gallery_images', 'specifications', 'variants', 'related_products')
 
     serializer_class = ProductSerializer
+    lookup_field = "slug"          
+    lookup_url_kwarg = "slug"
 
     filter_backends = [
         DjangoFilterBackend,
@@ -178,6 +180,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(related, many=True)
         return Response(serializer.data)
+    
+    def get_object(self):
+        lookup_value = self.kwargs.get(self.lookup_url_kwarg)
+
+        if lookup_value.isdigit():
+            return get_object_or_404(self.get_queryset(), pk=lookup_value)
+
+        return get_object_or_404(self.get_queryset(), slug=lookup_value)
 
 
 @extend_schema(tags=['Catalog'])
