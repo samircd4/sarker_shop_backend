@@ -13,7 +13,7 @@ from .serializers import (
     ChangePasswordSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,
     CustomTokenObtainPairSerializer
 )
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiTypes
 
 # --- Auth Views ---
 

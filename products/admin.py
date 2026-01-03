@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.forms.models import BaseInlineFormSet
+# from django.forms.models import BaseInlineFormSet
 from .models import (
     Category, Brand, Product, ProductImage, ProductSpecification,
     ProductVariant

@@ -1,38 +1,21 @@
 from rest_framework import viewsets, filters
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.reverse import reverse
 from rest_framework.permissions import (
     AllowAny,
-    IsAuthenticated,
-    IsAdminUser,
-    BasePermission,
-    SAFE_METHODS,
+    IsAdminUser
 )
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Avg, Q
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from .models import (
-    Product, Category, Brand,
-    ProductVariant
+    Product, Category, Brand
 )
 from .serializers import (
     ProductSerializer, CategorySerializer, BrandSerializer
 )
-from accounts.models import Customer, Address
-from accounts.serializers import CustomerSerializer, AddressSerializer
-
-# ------------------------------------------------------------------
-# Custom Permissions
-# ------------------------------------------------------------------
-# IsReviewOwnerOrReadOnly moved to reviews app
-
-
-# ------------------------------------------------------------------
-# Catalog ViewSets (Public Read, Admin Write)
-# ------------------------------------------------------------------
 
 @extend_schema(tags=['Catalog'])
 class ProductViewSet(viewsets.ModelViewSet):
@@ -126,8 +109,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     @extend_schema(summary="Featured Products")
     @action(detail=False, methods=['get'])
     def featured(self, request):
-        featured = self.filter_queryset(
-            self.get_queryset().filter(is_featured=True))
+        featured = self.filter_queryset(self.get_queryset().filter(is_featured=True))
         page = self.paginate_queryset(featured)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -227,25 +209,3 @@ class BrandViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]
         return [AllowAny()]
 
-
-# ------------------------------------------------------------------
-# Customer Profile (Authenticated)
-# Moved to accounts app
-# ------------------------------------------------------------------
-
-# ------------------------------------------------------------------
-# Address (Authenticated, Own Only)
-# Moved to accounts app
-# ------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------
-# Orders (Authenticated, Own Only)
-# Moved to orders app
-# ------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------
-# Reviews (Public Read, Auth Write, Owner Edit)
-# Moved to reviews app
-# ------------------------------------------------------------------

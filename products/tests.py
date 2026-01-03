@@ -2,11 +2,11 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.models import User
-from .models import Category, Brand, Product, ProductVariant
-from accounts.models import Customer
+from .models import Category, Brand, Product #, ProductVariant
+# from accounts.models import Customer
 # Try importing Order/OrderItem, if fails, skip bestseller test
 try:
-    from orders.models import Order, OrderItem, OrderStatus, PaymentInfo, Cart
+    from orders.models import Order, OrderItem, OrderStatus, PaymentInfo #Cart
     ORDERS_APP_AVAILABLE = True
 except ImportError:
     ORDERS_APP_AVAILABLE = False

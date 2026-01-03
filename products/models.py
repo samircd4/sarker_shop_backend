@@ -1,14 +1,7 @@
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db.models.signals import post_save, post_delete
 from django.utils.text import slugify
-from django.dispatch import receiver
-from django.db.models import Avg
 from django.db import models
-from decimal import Decimal
 import random
-
-from accounts.models import Customer
-
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -54,7 +47,7 @@ class Brand(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class Product(models.Model):

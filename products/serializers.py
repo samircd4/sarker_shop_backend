@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from django.db import transaction
+# from django.db import transaction
 import json
-from accounts.serializers import CustomerSerializer, AddressSerializer
+# from accounts.serializers import CustomerSerializer, AddressSerializer
 from drf_spectacular.utils import extend_schema_field
 
 from .models import (
