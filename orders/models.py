@@ -16,8 +16,8 @@ class OrderStatus(models.Model):
     display_name = models.CharField(max_length=50)  # e.g., 'Pending'
     description = models.TextField(blank=True, null=True)
 
-    def __str__(self):
-        return self.display_name
+    def __str__(self) -> str:
+        return str(self.display_name)
 
 # 2. Payment Info Model
 
@@ -87,8 +87,7 @@ class Checkout(models.Model):
 
 
 class Order(models.Model):
-    customer = models.ForeignKey(
-        Customer, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
 
     # Guest / Snapshot Address Fields
     email = models.EmailField(blank=True, null=True)

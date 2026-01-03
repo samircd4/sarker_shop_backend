@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Invoice #{{ order.id }}</title>
+
+    <style>
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        background: #ffffff;
+        color: #000000;
+        margin: 0;
+        padding: 0;
+      }
+
+      .invoice-container {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 20px;
+        border: 1px solid #000;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px; /* IMPORTANT */
+        border-bottom: 2px solid #000;
+        padding-bottom: 15px;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 26px;
+      }
+
+      .brand p {
+        margin: 4px 0;
+        font-size: 13px;
+        white-space: nowrap; /* prevents overflow wrap */
+      }
+
+      .invoice-title {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .invoice-title h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .invoice-details {
+        margin-top: 20px;
+        font-size: 14px;
+      }
+
+      .invoice-details p {
+        margin: 5px 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 25px;
+        table-layout: fixed; /* VERY IMPORTANT */
+      }
+
+      table th,
+      table td {
+        border: 1px solid #000;
+        padding: 8px;
+        font-size: 14px;
+        word-wrap: break-word;
+      }
+
+      table th {
+        background: #f2f2f2;
+      }
+
+      .total {
+        margin-top: 20px;
+        text-align: right;
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .address {
+        margin-top: 25px;
+        font-size: 14px;
+      }
+
+      .thank-you {
+        margin-top: 35px;
+        text-align: center;
+        font-size: 14px;
+        border-top: 1px solid #000;
+        padding-top: 15px;
+      }
+
+      .footer {
+        margin-top: 25px;
+        text-align: center;
+        font-size: 13px;
+        border-top: 1px dashed #000;
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="invoice-container">
+      <!-- Header -->
+      <div class="header">
+        <div class="brand">
+          <h1>Sarker Shop</h1>
+          <p>Electronic Gadgets & Accessories</p>
+          <p>Poshu Hospital Road, Botrish, Kishoreganj</p>
+          <p>Phone: 01781-355 377</p>
+          <p>Email: support@sarker.shop</p>
+        </div>
+
+        <div class="invoice-title">
+          <h2>Invoice #{{ order.id }}</h2>
+          <p>Date: {{ order.created_at|date:"d-m-Y h:i A" }}</p>
+        </div>
+      </div>
+
+      <!-- Invoice Info -->
+      <div class="invoice-details">
+        <p><strong>Status:</strong> {{ order.status }}</p>
+
+        <p>
+          <strong>Payment Status:</strong>
+          {% if order.payment.is_paid %} Paid {% else %} Unpaid {% endif %}
+        </p>
+
+        <p>
+          <strong>Payment Method:</strong> {{ order.payment.payment_method }}
+        </p>
+        <p>
+          <strong>Transaction ID:</strong>
+          {{ order.payment.transaction_id|default:"N/A" }}
+        </p>
+
+        <p><strong>Customer Name:</strong> {{ order.full_name }}</p>
+        <p><strong>Phone:</strong> {{ order.phone }}</p>
+        <p><strong>Email:</strong> {{ order.email }}</p>
+      </div>
+
+      <!-- Items Table -->
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th style="width: 80px">Qty</th>
+            <th style="width: 120px">Price</th>
+            <th style="width: 120px">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>৳ {{ item.price|floatformat:2 }}</td>
+            <td>৳ {{ item.subtotal|floatformat:2 }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" style="text-align: center">No items found</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Total -->
+      <div class="total">Total: ৳ {{ order.total_amount|floatformat:2 }}</div>
+
+      <!-- Shipping Address -->
+      <div class="address">
+        <strong>Shipping Address:</strong><br />
+
+        {% if order.address %} 
+            {{ order.address.full_name }}<br />
+            {{ order.address.phone }}<br />
+            {{ order.address.address }}<br />
+            {{ order.address.sub_district }}, {{ order.address.district }}, {{
+            order.address.division }} {% else %} {{ order.shipping_address }}<br />
+            {{ order.sub_district }}, {{ order.district }}, {{ order.division }} 
+        {%endif %}
+      </div>
+
+      <!-- Thank You -->
+      <div class="thank-you">
+        <strong>Thank you for shopping with Sarker Shop!</strong><br />
+        We appreciate your trust in our electronic products.
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Website: www.sarker.shop | Facebook: facebook.com/sarkershop
+      </div>
+    </div>
+  </body>
+</html>

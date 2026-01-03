@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import format_html
+from django.conf import settings
 from django.forms.models import BaseInlineFormSet
 from .models import Order, OrderItem, OrderStatus, PaymentInfo, Cart, Checkout, CartItem
 
@@ -24,12 +26,36 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    readonly_fields = ('total_amount',)
-    list_display = ('id', 'customer', 'total_amount',
-                    'order_status', 'created_at', 'phone', 'order_status', 'payment_info')
+    readonly_fields = ('total_amount', 'invoice_link')
+
+    list_display = (
+        'id',
+        'customer',
+        'total_amount',
+        'order_status',
+        'created_at',
+        'phone',
+        'payment_info',
+        'invoice_link',
+    )
+
     list_filter = ('order_status', 'created_at')
     search_fields = ('customer__name', 'customer__email', 'id', 'phone')
     inlines = [OrderItemInline]
+
+    def invoice_link(self, obj):
+        if not obj.pk:
+            return "-"
+
+        api_base = settings.API_BASE_URL.rstrip("/")
+        url = f"{api_base}/orders/{obj.id}/invoice/"
+
+        return format_html(
+            '<a href="{}" target="_blank">📄 Download Invoice</a>',
+            url
+        )
+
+    invoice_link.short_description = "Invoice"
 
 
 @admin.register(OrderStatus)

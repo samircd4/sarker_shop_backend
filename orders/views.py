@@ -7,41 +7,33 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from .models import Order, Cart, Checkout, CartItem, OrderStatus
 from .serializers import OrderSerializer, CartSerializer, CheckoutSerializer, CartItemSerializer
 
+# For pdf generator
+from django.http import HttpResponse
+from utils.pdf import generate_invoice_pdf
+
 
 @extend_schema(tags=['Orders'])
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-    # permission_classes = [permissions.IsAuthenticated] # Overridden by get_permissions
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['order_status__status_code', 'payment_info__is_paid']
     ordering_fields = ['created_at', 'total_amount']
 
-    @extend_schema(
-        summary="Create Order",
-        description="""
-        Create a new order.
-        
-        **For Authenticated Users:**
-        - Can use existing saved address via `address_id` OR provide new address details.
-        
-        **For Guest Users:**
-        - Must provide all address fields: `email`, `full_name`, `phone`, `shipping_address`, `division`, `district`.
-        """,
-        responses={201: OrderSerializer}
-    )
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
+    # --------------------
+    # Permissions
+    # --------------------
     def get_permissions(self):
         if self.action == 'create':
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
+    # --------------------
+    # Queryset
+    # --------------------
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return Order.objects.none()
 
-        # Check if user is authenticated before accessing customer
         if not self.request.user.is_authenticated:
             return Order.objects.none()
 
@@ -53,12 +45,39 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Order.objects.none()
 
+    # --------------------
+    # Create Order
+    # --------------------
+    @extend_schema(
+        summary="Create Order",
+        description="""
+        Create a new order.
+        
+        **For Authenticated Users:**
+        - Can use existing saved address via `address_id` OR provide new address details.
+        
+        **For Guest Users:**
+        - Must provide all address fields: `email`, `full_name`, `phone`,
+          `shipping_address`, `division`, `district`.
+        """,
+        responses={201: OrderSerializer}
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    # --------------------
+    # Update Order Status
+    # --------------------
     @extend_schema(
         summary="Update Order Status",
         request=None,
         parameters=[
-            OpenApiParameter("status", OpenApiTypes.STR,
-                             description="Status Code", required=True)
+            OpenApiParameter(
+                "status",
+                OpenApiTypes.STR,
+                description="Status Code",
+                required=True
+            )
         ],
         responses={200: OpenApiTypes.OBJECT}
     )
@@ -66,16 +85,63 @@ class OrderViewSet(viewsets.ModelViewSet):
     def status(self, request, pk=None):
         order = self.get_object()
         status_code = request.data.get('status')
+
         if not status_code:
-            return Response({'error': 'status is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'status is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             new_status = OrderStatus.objects.get(status_code=status_code)
             order.order_status = new_status
             order.save()
-            return Response({'status': 'updated', 'new_status': new_status.display_name})
+            return Response({
+                'status': 'updated',
+                'new_status': new_status.display_name
+            })
         except OrderStatus.DoesNotExist:
-            return Response({'error': 'Invalid status code'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Invalid status code'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # --------------------
+    # 🔥 Invoice PDF Action
+    # --------------------
+    @extend_schema(
+        tags=['pdf_generator'],
+        summary="Download Order Invoice (PDF)",
+        description="Generate and download invoice PDF for this order",
+        responses={200: OpenApiTypes.BINARY}
+    )
+    @action(detail=True, methods=['get'], url_path='invoice')
+    def invoice(self, request, pk=None):
+        order = self.get_object()
+
+        # 🔐 HARD SECURITY CHECK (no loopholes)
+        if not request.user.is_staff:
+            # User must own the order
+            if not hasattr(request.user, 'customer'):
+                return Response(
+                    {'detail': 'You are not allowed to access this invoice.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if order.customer != request.user.customer:
+                return Response(
+                    {'detail': 'You are not allowed to access this invoice.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        pdf = generate_invoice_pdf(order)
+
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename="invoice_{order.id}.pdf"'
+        )
+
+        return response
 
 
 @extend_schema(tags=['Cart'])

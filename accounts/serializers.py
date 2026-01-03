@@ -14,8 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True, required=False, allow_blank=True)
     email = serializers.EmailField(
         required=True,
-        validators=[UniqueValidator(
-            queryset=User.objects.all(), message="Email already exists")]
+        validators=[UniqueValidator(queryset=User.objects.all(), message="Email already exists")]
     )
 
     class Meta:

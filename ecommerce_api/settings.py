@@ -25,43 +25,6 @@ SECRET_KEY = 'django-insecure-16m5sa@!uf8bl7l91hd_ynkgn$qqij-ar5%-j^i%bp32#7j#=k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# =========================
-# ALLOWED HOSTS
-# =========================
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "192.168.0.100",
-    "pill-cfr-postings-guarantees.trycloudflare.com",
-    "task-win-sell-distance.trycloudflare.com",
-]
-
-
-# =========================
-# CORS (Frontend Access)
-# =========================
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://pill-cfr-postings-guarantees.trycloudflare.com",
-    "https://task-win-sell-distance.trycloudflare.com",
-]
-
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = False   # 🔴 IMPORTANT
-
-
-# =========================
-# CSRF (Admin / Cookies)
-# =========================
-CSRF_TRUSTED_ORIGINS = [
-    "https://pill-cfr-postings-guarantees.trycloudflare.com",
-    "https://task-win-sell-distance.trycloudflare.com",
-]
-
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-
 
 # =========================
 # Cloudflare / Proxy Fix
@@ -74,6 +37,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     # 'unfold',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -83,7 +47,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework',
     'django_filters',
-    'corsheaders',
     'drf_spectacular',
 
     # Custom apps
@@ -212,6 +175,41 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# =========================
+# ALLOWED HOSTS
+# =========================
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "192.168.0.100",
+    "testserver",
+]
+
+
+
+# =========================
+# CORS (Frontend Access)
+# =========================
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",      # Frontend (Vite)
+    "http://127.0.0.1:5173",      # Frontend (Vite)
+]
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+
+# =========================
+# CSRF (Admin / Cookies)
+# =========================
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000",
+]
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -255,3 +253,4 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/admin/login/'
+API_BASE_URL = "http://127.0.0.1:8000/api"

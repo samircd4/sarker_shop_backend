@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.models import User
-from accounts.models import Customer, Address
+from accounts.models import Address
 from products.models import Product, Category, Brand
 from .models import Order, OrderStatus, PaymentInfo, Cart
 

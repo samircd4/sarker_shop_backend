@@ -130,8 +130,25 @@ class OrderSerializer(serializers.ModelSerializer):
         is_wholesaler = False
 
         if user.is_authenticated:
-            customer = user.customer
-            is_wholesaler = customer.is_wholesaler
+            # Prefer the OneToOne `customer` on User; create/get fallback if missing
+            try:
+                customer = user.customer
+            except Exception:
+                from accounts.models import Customer as _Customer
+                customer, _ = _Customer.objects.get_or_create(
+                    user=user,
+                    defaults={'name': getattr(user, 'get_full_name', lambda: '')() or user.username,
+                              'email': user.email}
+                )
+            is_wholesaler = getattr(customer, 'is_wholesaler', False)
+
+        # If we have a customer (authenticated user), auto-fill snapshot fields
+        if customer:
+            validated_data.setdefault('full_name', getattr(customer, 'name', None))
+            validated_data.setdefault('email', getattr(customer, 'email', None))
+            # Try to use customer's phone_number if snapshot phone missing
+            if not validated_data.get('phone'):
+                validated_data['phone'] = getattr(customer, 'phone_number', None)
 
         # Handle Address Logic
         # If address_id is provided, copy data from it to snapshot fields
