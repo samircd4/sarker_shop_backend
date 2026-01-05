@@ -170,7 +170,7 @@ class CartViewSet(viewsets.ModelViewSet):
     )
     def list(self, request, *args, **kwargs):
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'request': request})
         return Response(serializer.data)
 
     @extend_schema(

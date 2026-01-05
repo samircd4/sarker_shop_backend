@@ -21,7 +21,11 @@ class OrderProductSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_image(self, obj):
         if obj.image:
-            return obj.image.url
+            request = self.context.get('request')
+            url = obj.image.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
         return None
 
 
