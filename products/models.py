@@ -148,11 +148,9 @@ class Product(models.Model):
                     self.product_id = pid
                     break
 
-        # 3️⃣ Auto SKU (Brand-Slug-SSID)
+        # 3️⃣ Auto SKU
         if not self.sku:
-            brand_part = slugify(self.brand.name)[:10].upper()
-            name_part = slugify(self.name)[:10].upper()
-            self.sku = f"{brand_part}-{name_part}-{self.product_id}"
+            self.sku = self.product_id
 
         super().save(*args, **kwargs)
 

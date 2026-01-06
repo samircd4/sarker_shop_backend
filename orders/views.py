@@ -155,13 +155,29 @@ class CartViewSet(viewsets.ModelViewSet):
     DELETE /api/cart/{id}/ -> Remove Item
     DELETE /api/cart/clear/ -> Clear Cart
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     serializer_class = CartItemSerializer
+
+    def _get_cart(self, request):
+        if request.user.is_authenticated:
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            return cart
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        cart, _ = Cart.objects.get_or_create(
+            session_key=request.session.session_key)
+        return cart
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return CartItem.objects.none()
-        return CartItem.objects.filter(cart__user=self.request.user)
+        if self.request.user.is_authenticated:
+            return CartItem.objects.filter(cart__user=self.request.user)
+        # Ensure session exists
+        if not self.request.session.session_key:
+            self.request.session.create()
+        return CartItem.objects.filter(cart__session_key=self.request.session.session_key)
 
     @extend_schema(
         summary="Get Cart",
@@ -169,7 +185,7 @@ class CartViewSet(viewsets.ModelViewSet):
         responses={200: CartSerializer}
     )
     def list(self, request, *args, **kwargs):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = self._get_cart(request)
         serializer = CartSerializer(cart, context={'request': request})
         return Response(serializer.data)
 
@@ -179,18 +195,36 @@ class CartViewSet(viewsets.ModelViewSet):
         responses={201: CartItemSerializer}
     )
     def create(self, request, *args, **kwargs):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = self._get_cart(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = serializer.validated_data['product']
+        product = serializer.validated_data.get('product')
+        variant = serializer.validated_data.get('variant')
         quantity = serializer.validated_data['quantity']
 
         # Check if item exists
-        item, created = CartItem.objects.get_or_create(
-            cart=cart, product=product,
-            defaults={'quantity': quantity}
-        )
+        if variant:
+            item, created = CartItem.objects.get_or_create(
+                cart=cart, product=variant.product, variant=variant,
+                defaults={'quantity': quantity}
+            )
+        else:
+            # If product has variants but none specified, pick a default active variant (min price)
+            default_variant = None
+            if product and product.variants.exists():
+                default_variant = product.variants.filter(
+                    is_active=True).order_by('price').first()
+            if default_variant:
+                item, created = CartItem.objects.get_or_create(
+                    cart=cart, product=product, variant=default_variant,
+                    defaults={'quantity': quantity}
+                )
+            else:
+                item, created = CartItem.objects.get_or_create(
+                    cart=cart, product=product,
+                    defaults={'quantity': quantity}
+                )
 
         if not created:
             item.quantity += quantity
@@ -206,7 +240,7 @@ class CartViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['delete'])
     def clear(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = self._get_cart(request)
         cart.items.all().delete()
         return Response({'status': 'cart cleared'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -222,13 +256,27 @@ class CartItemViewSet(viewsets.ModelViewSet):
     - DELETE /api/cart-items/{id}/ : Remove item from cart
     """
     serializer_class = CartItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+
+    def _get_cart(self, request):
+        if request.user.is_authenticated:
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            return cart
+        if not request.session.session_key:
+            request.session.create()
+        cart, _ = Cart.objects.get_or_create(
+            session_key=request.session.session_key)
+        return cart
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return CartItem.objects.none()
-        return CartItem.objects.filter(cart__user=self.request.user)
+        if self.request.user.is_authenticated:
+            return CartItem.objects.filter(cart__user=self.request.user)
+        if not self.request.session.session_key:
+            self.request.session.create()
+        return CartItem.objects.filter(cart__session_key=self.request.session.session_key)
 
     def perform_create(self, serializer):
         cart, _ = Cart.objects.get_or_create(user=self.request.user)
@@ -252,18 +300,36 @@ class CartItemViewSet(viewsets.ModelViewSet):
             pass
 
     def create(self, request, *args, **kwargs):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart = self._get_cart(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = serializer.validated_data['product']
+        product = serializer.validated_data.get('product')
+        variant = serializer.validated_data.get('variant')
         quantity = serializer.validated_data['quantity']
 
         # Check if item exists
-        item, created = CartItem.objects.get_or_create(
-            cart=cart, product=product,
-            defaults={'quantity': quantity}
-        )
+        if variant:
+            item, created = CartItem.objects.get_or_create(
+                cart=cart, product=variant.product, variant=variant,
+                defaults={'quantity': quantity}
+            )
+        else:
+            # If product has variants but none specified, pick a default active variant (min price)
+            default_variant = None
+            if product and product.variants.exists():
+                default_variant = product.variants.filter(
+                    is_active=True).order_by('price').first()
+            if default_variant:
+                item, created = CartItem.objects.get_or_create(
+                    cart=cart, product=product, variant=default_variant,
+                    defaults={'quantity': quantity}
+                )
+            else:
+                item, created = CartItem.objects.get_or_create(
+                    cart=cart, product=product,
+                    defaults={'quantity': quantity}
+                )
 
         if not created:
             item.quantity += quantity

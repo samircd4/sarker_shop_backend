@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from accounts.serializers import AddressSerializer
-from products.models import Product
+from products.models import Product, ProductVariant
 from accounts.models import Address
 from .models import Order, OrderItem, Cart, CartItem, Checkout, PaymentInfo, OrderStatus
 
@@ -40,6 +40,15 @@ class OrderProductSerializer(serializers.ModelSerializer):
         return getattr(obj, 'display_wholesale_price', None)
 
 
+class OrderVariantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVariant
+        fields = [
+            'id', 'sku', 'price', 'wholesale_price', 'discount_price',
+            'stock_quantity', 'ram', 'storage', 'color'
+        ]
+
+
 class OrderStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderStatus
@@ -55,17 +64,32 @@ class PaymentInfoSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = OrderProductSerializer(read_only=True)
+    variant = OrderVariantSerializer(read_only=True)
+    ram = serializers.IntegerField(source='variant.ram', read_only=True)
+    storage = serializers.IntegerField(
+        source='variant.storage', read_only=True)
+    color = serializers.CharField(source='variant.color', read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), source='product', write_only=True
+        queryset=Product.objects.all(), source='product', write_only=True, required=False
+    )
+    variant_id = serializers.PrimaryKeyRelatedField(
+        queryset=ProductVariant.objects.all(), source='variant', write_only=True, required=False
     )
     subtotal = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'product_id',
+        fields = ['id', 'product', 'variant', 'ram', 'storage', 'color', 'product_id', 'variant_id',
                   'quantity', 'price', 'subtotal']
         read_only_fields = ['price', 'subtotal']
+
+    def validate(self, data):
+        # Require either product or variant
+        if not data.get('product') and not data.get('variant'):
+            raise serializers.ValidationError(
+                "Provide product_id or variant_id.")
+        return data
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -92,7 +116,7 @@ class OrderSerializer(serializers.ModelSerializer):
     payment = PaymentInfoSerializer(source='payment_info', read_only=True)
 
     items_input = serializers.ListField(
-        child=serializers.DictField(), write_only=True
+        child=serializers.DictField(), write_only=True, required=False
     )
 
     class Meta:
@@ -116,14 +140,26 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_amount', 'status', 'payment', 'created_at']
 
     def validate(self, data):
-        user = self.context['request'].user
+        request = self.context['request']
+        user = request.user
 
-        # 1. Validate Items
+        # Items can come from items_input or from the user's/session cart
         if not data.get('items_input'):
-            raise serializers.ValidationError("Order must contain items.")
+            # Try to resolve cart
+            cart = None
+            if user.is_authenticated:
+                cart = Cart.objects.filter(user=user).first()
+            else:
+                # Ensure session exists
+                if not request.session.session_key:
+                    request.session.create()
+                cart = Cart.objects.filter(
+                    session_key=request.session.session_key).first()
+            if not cart or cart.items.count() == 0:
+                raise serializers.ValidationError(
+                    "Order must contain items (cart is empty).")
 
-        # 2. Validate Address Info
-        # If user is anonymous, they MUST provide full address details
+        # Guest must provide minimal identity and shipping
         if not user.is_authenticated:
             required_fields = ['email', 'full_name', 'phone',
                                'shipping_address', 'division', 'district']
@@ -131,15 +167,12 @@ class OrderSerializer(serializers.ModelSerializer):
             if missing:
                 raise serializers.ValidationError(
                     f"Guest checkout requires: {', '.join(missing)}")
-
-        # If authenticated, they can use address_id OR provide new details
-        # (Logic handled in create)
-
         return data
 
     def create(self, validated_data):
-        items_data = validated_data.pop('items_input')
-        user = self.context['request'].user
+        request = self.context['request']
+        items_data = validated_data.pop('items_input', None)
+        user = request.user
 
         customer = None
         is_wholesaler = False
@@ -186,28 +219,109 @@ class OrderSerializer(serializers.ModelSerializer):
                 **validated_data
             )
 
-            for item in items_data:
-                product_id = item.get('product_id')
-                quantity = item.get('quantity', 1)
-                product = Product.objects.get(id=product_id)
-
-                wholesale = getattr(product, 'display_wholesale_price', None)
-                discount = getattr(product, 'display_discount_price', None)
-                base_price = getattr(product, 'display_price', None)
-
-                if is_wholesaler and wholesale and wholesale > 0:
-                    final_price = wholesale
-                elif discount and discount > 0:
-                    final_price = discount
+            # Source items: provided items_input or current cart items
+            if items_data:
+                source_items = items_data
+                is_cart = False
+            else:
+                # Build from cart
+                is_cart = True
+                cart = None
+                if user.is_authenticated:
+                    cart = Cart.objects.filter(user=user).first()
                 else:
-                    final_price = base_price
+                    if not request.session.session_key:
+                        request.session.create()
+                    cart = Cart.objects.filter(
+                        session_key=request.session.session_key).first()
+                source_items = [
+                    {
+                        'product_id': ci.product_id,
+                        'variant_id': ci.variant_id,
+                        'quantity': ci.quantity
+                    }
+                    for ci in cart.items.all()
+                ]
 
-                OrderItem.objects.create(
-                    order=order,
-                    product=product,
-                    quantity=quantity,
-                    price=final_price
-                )
+            for item in source_items:
+                quantity = item.get('quantity', 1)
+                variant_id = item.get('variant_id')
+                product_id = item.get('product_id')
+
+                if variant_id:
+                    variant = ProductVariant.objects.get(id=variant_id)
+                    product = variant.product
+                    v_wholesale = getattr(variant, 'wholesale_price', None)
+                    v_discount = getattr(variant, 'discount_price', None)
+                    v_price = getattr(variant, 'price', None)
+
+                    if is_wholesaler and v_wholesale and v_wholesale > 0:
+                        final_price = v_wholesale
+                    elif v_discount and v_discount > 0:
+                        final_price = v_discount
+                    else:
+                        final_price = v_price
+
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        variant=variant,
+                        quantity=quantity,
+                        price=final_price
+                    )
+                else:
+                    product = Product.objects.get(id=product_id)
+                    # If product has variants but none specified, pick a default active variant (min price)
+                    default_variant = product.variants.filter(
+                        is_active=True).order_by('price').first()
+                    if default_variant:
+                        v_wholesale = getattr(
+                            default_variant, 'wholesale_price', None)
+                        v_discount = getattr(
+                            default_variant, 'discount_price', None)
+                        v_price = getattr(default_variant, 'price', None)
+
+                        if is_wholesaler and v_wholesale and v_wholesale > 0:
+                            final_price = v_wholesale
+                        elif v_discount and v_discount > 0:
+                            final_price = v_discount
+                        else:
+                            final_price = v_price
+
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            variant=default_variant,
+                            quantity=quantity,
+                            price=final_price
+                        )
+                    else:
+                        wholesale = getattr(
+                            product, 'display_wholesale_price', None)
+                        discount = getattr(
+                            product, 'display_discount_price', None)
+                        base_price = getattr(product, 'display_price', None)
+
+                        if is_wholesaler and wholesale and wholesale > 0:
+                            final_price = wholesale
+                        elif discount and discount > 0:
+                            final_price = discount
+                        else:
+                            final_price = base_price
+
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            quantity=quantity,
+                            price=final_price
+                        )
+
+            # Optionally clear cart after order creation
+            if 'is_cart' in locals() and is_cart:
+                try:
+                    cart.items.all().delete()
+                except Exception:
+                    pass
 
             # Assuming update_total_amount exists on Order model
             if hasattr(order, 'update_total_amount'):
@@ -224,13 +338,25 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = OrderProductSerializer(read_only=True)
+    variant = OrderVariantSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), source='product', write_only=True
+        queryset=Product.objects.all(), source='product', write_only=True, required=False
+    )
+    variant_id = serializers.PrimaryKeyRelatedField(
+        queryset=ProductVariant.objects.all(), source='variant', write_only=True, required=False
     )
 
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_id', 'quantity']
+        fields = ['id', 'product', 'variant',
+                  'product_id', 'variant_id', 'quantity']
+
+    def validate(self, data):
+        # Require either product or variant
+        if not data.get('product') and not data.get('variant'):
+            raise serializers.ValidationError(
+                "Provide product_id or variant_id.")
+        return data
 
 
 class CartSerializer(serializers.ModelSerializer):

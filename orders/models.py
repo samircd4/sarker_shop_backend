@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from decimal import Decimal
 from accounts.models import Customer, Address
-from products.models import Product
+from products.models import Product, ProductVariant
 
 # 1. Order Status Model
 
@@ -60,9 +60,13 @@ class CartItem(models.Model):
     cart = models.ForeignKey(Cart, related_name='items',
                              on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    variant = models.ForeignKey(
+        ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
+        if self.variant:
+            return f"{self.quantity} x {self.product.name} ({self.variant.sku})"
         return f"{self.quantity} x {self.product.name}"
 
 # 4. Checkout Model
@@ -135,6 +139,8 @@ class OrderItem(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    variant = models.ForeignKey(
+        ProductVariant, on_delete=models.PROTECT, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal('0.00'))
@@ -149,7 +155,10 @@ class OrderItem(models.Model):
             except Exception:
                 price_zero = True
             if price_zero:
-                self.price = self.product.price
+                if self.variant:
+                    self.price = self.variant.price
+                else:
+                    self.price = self.product.price
         super().save(*args, **kwargs)
         # update order total
         self.order.update_total_amount()
