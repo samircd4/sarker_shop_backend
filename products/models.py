@@ -2,6 +2,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.text import slugify
 from django.db import models
 import random
+from django.db.models import Min
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -51,126 +53,258 @@ class Brand(models.Model):
 
 
 class Product(models.Model):
+    PRODUCT_TYPE_CHOICES = (
+        ("simple", "Simple"),
+        ("variant", "Variant"),
+    )
+
     # --- 1. Identity ---
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True, blank=True)
 
-    # Public ID: SS123456 (Auto-generated)
-    product_id = models.CharField(max_length=20, unique=True, editable=False)
+    # Public readable ID → SS123456
+    product_id = models.CharField(
+        max_length=20, unique=True, editable=False
+    )
 
-    # SKU: Manual entry, simple string (e.g. "IPHONE-15-PRO-BLK")
-    sku = models.CharField(max_length=50, unique=True, blank=True)
+    # Auto-generated base SKU (used as prefix for variants)
+    sku = models.CharField(
+        max_length=50, unique=True, editable=False
+    )
+
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Used only for simple products"
+    )
+
+    product_type = models.CharField(
+        max_length=10,
+        choices=PRODUCT_TYPE_CHOICES,
+        default="simple"
+    )
 
     # --- 2. Relationships ---
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name='products')
+        Category, on_delete=models.CASCADE, related_name="products"
+    )
     brand = models.ForeignKey(
-        Brand, on_delete=models.CASCADE, related_name='products')
+        Brand, on_delete=models.CASCADE, related_name="products"
+    )
     related_products = models.ManyToManyField(
-        'self', blank=True, symmetrical=False, related_name='related_to')
+        "self", blank=True, symmetrical=False
+    )
 
-    # --- 3. Pricing ---
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2, help_text="Retail Price")
-    wholesale_price = models.DecimalField(
-        max_digits=10, decimal_places=2, help_text="Wholesale Price")
-    discount_price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True)
-
-    # --- 4. Inventory & Status ---
-    stock_quantity = models.PositiveIntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    is_featured = models.BooleanField(default=False)
-    is_bestseller = models.BooleanField(
-        default=False, help_text="Manual override for bestseller status")
-
-    # --- 5. Media & Content ---
-    # This is the "Cover Image" / Thumbnail for fast loading on the home page
-    image = models.ImageField(upload_to='products/',
-                              help_text='Cover image for the product card',
-                              blank=True, null=True)
+    # --- 3. Media & Content ---
+    image = models.ImageField(
+        upload_to="products/",
+        blank=True,
+        null=True,
+        help_text="Main thumbnail"
+    )
 
     short_description = models.TextField(
-        blank=True, max_length=160, help_text="Shown in product lists")
+        blank=True, max_length=160
+    )
     description = models.TextField(blank=True)
 
-    # --- 6. Social Proof ---
+    # --- 4. Status & Flags ---
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    is_bestseller = models.BooleanField(default=False)
+
+    # --- 5. Social Proof ---
     rating = models.FloatField(
-        validators=[MinValueValidator(0.0), MaxValueValidator(5.0)], default=0.0)
+        default=0.0,
+        validators=[MinValueValidator(0), MaxValueValidator(5)]
+    )
     reviews_count = models.PositiveIntegerField(default=0)
 
-    # --- 7. Timestamps ---
+    # --- 6. Timestamps ---
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
-        # 1. Auto-Slug
+        # 1️⃣ Auto Slug
         if not self.slug:
-            self.slug = slugify(self.name)
-            original_slug = self.slug
+            base_slug = slugify(self.name)
+            slug = base_slug
             counter = 1
-            while Product.objects.filter(slug=self.slug).exists():
-                self.slug = f"{original_slug}-{counter}"
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
                 counter += 1
+            self.slug = slug
 
-        # 2. Auto-Generate Product ID (SS + 6 Digits)
+        # 2️⃣ Auto Product ID (SS + 6 digits)
         if not self.product_id:
             while True:
-                new_id = f"SS{random.randint(100000, 999999)}"
-                if not Product.objects.filter(product_id=new_id).exists():
-                    self.product_id = new_id
+                pid = f"SS{random.randint(100000, 999999)}"
+                if not Product.objects.filter(product_id=pid).exists():
+                    self.product_id = pid
                     break
 
-        # 3. Handle Empty SKU (Optional: make it same as slug or random if empty)
+        # 3️⃣ Auto SKU (Brand-Slug-SSID)
         if not self.sku:
-            self.sku = self.product_id  # Fallback: use the SS-ID as SKU if user forgets
+            brand_part = slugify(self.brand.name)[:10].upper()
+            name_part = slugify(self.name)[:10].upper()
+            self.sku = f"{brand_part}-{name_part}-{self.product_id}"
 
         super().save(*args, **kwargs)
 
+    @property
+    def display_price(self):
+        """
+        Returns:
+        - Product.price for simple products
+        - Minimum variant price for variant products
+        """
+        if self.variants.exists():
+            return self.variants.aggregate(
+                min_price=Min('price')
+            )['min_price']
+        return self.price
+
+    @property
+    def display_wholesale_price(self):
+        """
+        Returns:
+        - Product.wholesale_price for simple products
+        - Minimum variant wholesale_price for variant products
+        """
+        if self.variants.exists():
+            return self.variants.aggregate(
+                min_wholesale=Min('wholesale_price')
+            )['min_wholesale']
+        return getattr(self, 'wholesale_price', None)
+
+    @property
+    def display_discount_price(self):
+        """
+        Returns:
+        - Product.discount_price if exists
+        - Minimum variant discount_price if variants exist
+        """
+        if self.variants.exists():
+            return self.variants.aggregate(
+                min_discount=Min('discount_price')
+            )['min_discount']
+        return getattr(self, 'discount_price', None)
+
     def __str__(self):
-        return f"[{self.product_id}] {self.name}"
+        return f"{self.name} ({self.product_id})"
 
 
 class ProductVariant(models.Model):
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='variants')
-    name = models.CharField(
-        max_length=100, help_text="e.g. Size: L, Color: Red")
-    sku = models.CharField(max_length=50, unique=True, blank=True)
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True, help_text="Override base price if set")
+        Product,
+        on_delete=models.CASCADE,
+        related_name="variants"
+    )
+
+    # Variant attributes (NULL for simple products)
+    ram = models.PositiveIntegerField(null=True, blank=True)
+    storage = models.PositiveIntegerField(null=True, blank=True)
+    color = models.CharField(max_length=50, blank=True)
+
+    # Auto-generated variant SKU
+    sku = models.CharField(
+        max_length=80, unique=True, editable=False
+    )
+
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    wholesale_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    discount_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+
     stock_quantity = models.PositiveIntegerField(default=0)
-    attributes = models.JSONField(
-        default=dict, blank=True, help_text="Key-value attributes")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "ram", "storage", "color"],
+                name="unique_variant_combo"
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            parts = [self.product.sku]
+
+            if self.ram:
+                parts.append(f"{self.ram}GB")
+            if self.storage:
+                parts.append(f"{self.storage}GB")
+            if self.color:
+                parts.append(slugify(self.color).upper())
+
+            self.sku = "-".join(parts)
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.product.name} - {self.name}"
+        if self.product.product_type == "simple":
+            return f"{self.product.name} (Default)"
+        return f"{self.product.name} | {self.ram}/{self.storage} | {self.color}"
 
 
 class ProductSpecification(models.Model):
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='specifications')
-    key = models.CharField(max_length=50)   # e.g. "Color"
-    value = models.CharField(max_length=50)  # e.g. "Red"
+        Product,
+        on_delete=models.CASCADE,
+        related_name='specifications'
+    )
+
+    key = models.CharField(
+        max_length=50,
+        help_text="e.g. RAM, Storage, Color, Battery"
+    )
+    value = models.CharField(
+        max_length=100,
+        help_text="e.g. 6GB, 128GB, Blue, 5000mAh"
+    )
+
+    class Meta:
+        unique_together = ('product', 'key')
+        ordering = ['key']
 
     def __str__(self):
-        return f"{self.key}: {self.value}"
+        return f"{self.product.name} | {self.key}: {self.value}"
 
 
 class ProductImage(models.Model):
-    # This is for the Gallery (Multiple images per product)
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='gallery_images')
+        Product,
+        on_delete=models.CASCADE,
+        related_name='gallery_images'
+    )
     image = models.ImageField(upload_to='products/gallery/')
+    is_primary = models.BooleanField(default=False)
+    alt_text = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="SEO & accessibility text"
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
 
     def __str__(self):
-        return f"Gallery Image for {self.product.product_id}"
+        return f"Image for {self.product.name}"
 
-
-# --- 4. Reviews ---
-# Moved to reviews app
-
-# --- SIGNALS ---
+    def save(self, *args, **kwargs):
+        if self.is_primary:
+            ProductImage.objects.filter(
+                product=self.product,
+                is_primary=True
+            ).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)

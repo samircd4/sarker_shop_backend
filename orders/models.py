@@ -87,7 +87,8 @@ class Checkout(models.Model):
 
 
 class Order(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
 
     # Guest / Snapshot Address Fields
     email = models.EmailField(blank=True, null=True)
@@ -141,7 +142,14 @@ class OrderItem(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         if is_new and self.product:
-            self.price = self.product.price
+            # Only auto-fill price when not explicitly provided
+            try:
+                price_zero = (self.price is None) or (
+                    self.price == Decimal('0.00'))
+            except Exception:
+                price_zero = True
+            if price_zero:
+                self.price = self.product.price
         super().save(*args, **kwargs)
         # update order total
         self.order.update_total_amount()

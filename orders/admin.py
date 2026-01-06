@@ -46,14 +46,8 @@ class OrderAdmin(admin.ModelAdmin):
     def invoice_link(self, obj):
         if not obj.pk:
             return "-"
-
-        api_base = settings.API_BASE_URL.rstrip("/")
-        url = f"{api_base}/orders/{obj.id}/invoice/"
-
-        return format_html(
-            '<a href="{}" target="_blank">📄 Download Invoice</a>',
-            url
-        )
+        url = f"/api/orders/{obj.id}/invoice/"
+        return format_html('<a href="{}" target="_blank">📄 Download Invoice</a>', url)
 
     invoice_link.short_description = "Invoice"
 

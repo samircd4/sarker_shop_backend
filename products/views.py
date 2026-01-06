@@ -19,12 +19,19 @@ from .serializers import (
 
 @extend_schema(tags=['Catalog'])
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all() \
-        .select_related('brand', 'category') \
-        .prefetch_related('gallery_images', 'specifications', 'variants', 'related_products')
+    queryset = (
+        Product.objects.all()
+        .select_related('brand', 'category')
+        .prefetch_related(
+            'gallery_images',
+            'specifications',
+            'variants',
+            'related_products'
+        )
+    )
 
     serializer_class = ProductSerializer
-    lookup_field = "slug"          
+    lookup_field = "slug"
     lookup_url_kwarg = "slug"
 
     filter_backends = [
@@ -32,61 +39,65 @@ class ProductViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter
     ]
+
+    # ✅ ONLY REAL DB FIELDS
     filterset_fields = {
         'category': ['exact'],
         'brand': ['exact'],
         'is_featured': ['exact'],
         'is_bestseller': ['exact'],
         'is_active': ['exact'],
-        'price': ['gte', 'lte'],
     }
-    search_fields = ['name', 'description', 'sku',
-                     'product_id', 'brand__name', 'category__name']
-    ordering_fields = ['price', 'created_at', 'rating', 'reviews_count']
+
+
+    search_fields = [
+        'name',
+        'description',
+        'sku',
+        'product_id',
+        'brand__name',
+        'category__name'
+    ]
+
+    # ✅ ONLY REAL DB FIELDS
+    ordering_fields = ['created_at', 'rating', 'reviews_count']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [AllowAny()]
 
+    # ----------------------------
+    # 🔍 AUTOCOMPLETE SUGGESTIONS
+    # ----------------------------
     @extend_schema(
         summary="Suggest Products",
         description="Autocomplete suggestions for search bar.",
         parameters=[
-            OpenApiParameter("search", OpenApiTypes.STR,
-                             description="Search term")
+            OpenApiParameter("search", OpenApiTypes.STR)
         ],
-        responses={200: OpenApiTypes.OBJECT}
     )
     @action(detail=False, methods=['get'])
     def suggest(self, request):
-        """
-        Autocomplete suggestions for search bar
-        """
         query = request.query_params.get('search', '')
         if not query:
             return Response([])
-        # Search by name or sku
+
         products = self.get_queryset().filter(
             Q(name__icontains=query) | Q(sku__icontains=query)
         )[:10]
-        suggestions = [{'id': p.id, 'name': p.name, 'slug': p.slug}
-                       for p in products]
-        return Response(suggestions)
 
-    @extend_schema(
-        summary="Search Products",
-        description="Search products by 'q' query parameter.",
-        parameters=[
-            OpenApiParameter("q", OpenApiTypes.STR, description="Search query")
-        ],
-        responses={200: ProductSerializer(many=True)}
-    )
+        return Response([
+            {'id': p.id, 'name': p.name, 'slug': p.slug}
+            for p in products
+        ])
+
+    # ----------------------------
+    # 🔍 FULL SEARCH
+    # ----------------------------
+    @extend_schema(summary="Search Products")
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """
-        Search products by 'q' query parameter.
-        """
         query = request.query_params.get('q', '')
         if not query:
             return Response([])
@@ -103,66 +114,67 @@ class ProductViewSet(viewsets.ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
+
         serializer = self.get_serializer(results, many=True)
         return Response(serializer.data)
 
+    # ----------------------------
+    # ⭐ FEATURED
+    # ----------------------------
     @extend_schema(summary="Featured Products")
     @action(detail=False, methods=['get'])
     def featured(self, request):
-        featured = self.filter_queryset(self.get_queryset().filter(is_featured=True))
-        page = self.paginate_queryset(featured)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(featured, many=True)
-        return Response(serializer.data)
+        qs = self.filter_queryset(
+            self.get_queryset().filter(is_featured=True)
+        )
+        page = self.paginate_queryset(qs)
+        if page:
+            return self.get_paginated_response(
+                self.get_serializer(page, many=True).data
+            )
+        return Response(self.get_serializer(qs, many=True).data)
 
-    @extend_schema(
-        summary="Bestselling Products",
-        description="Returns products explicitly marked as 'is_bestseller' in the database."
-    )
+    # ----------------------------
+    # 🔥 BESTSELLERS
+    # ----------------------------
+    @extend_schema(summary="Bestselling Products")
     @action(detail=False, methods=['get'])
     def bestsellers(self, request):
-        """
-        Returns products explicitly marked as 'is_bestseller' in the database.
-        """
-        bestsellers = self.get_queryset().filter(is_bestseller=True)
+        qs = self.get_queryset().filter(is_bestseller=True)
+        page = self.paginate_queryset(qs)
+        if page:
+            return self.get_paginated_response(
+                self.get_serializer(page, many=True).data
+            )
+        return Response(self.get_serializer(qs, many=True).data)
 
-        page = self.paginate_queryset(bestsellers)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(bestsellers, many=True)
-        return Response(serializer.data)
-
-    @extend_schema(
-        summary="Related Products",
-        description="Returns related products based on manual selection or category."
-    )
+    # ----------------------------
+    # 🔗 RELATED PRODUCTS
+    # ----------------------------
+    @extend_schema(summary="Related Products")
     @action(detail=True, methods=['get'])
     def related(self, request, pk=None):
-        """
-        Returns related products based on:
-        1. Manual 'related_products'
-        2. Same category (fallback)
-        """
         product = self.get_object()
 
-        # 1. Manual
         related = product.related_products.all()
 
-        # 2. If few manual, add same category
         if related.count() < 4:
-            same_category = Product.objects.filter(category=product.category) \
-                .exclude(id=product.id) \
-                .exclude(id__in=related.values_list('id', flat=True)) \
-                .order_by('?')[:4]  # Random 4
-            related = related | same_category
-            related = related.distinct()
+            same_category = (
+                Product.objects
+                .filter(category=product.category)
+                .exclude(id=product.id)
+                .exclude(id__in=related.values_list('id', flat=True))
+                .order_by('?')[:4]
+            )
+            related = (related | same_category).distinct()
 
-        serializer = self.get_serializer(related, many=True)
-        return Response(serializer.data)
-    
+        return Response(
+            self.get_serializer(related, many=True).data
+        )
+
+    # ----------------------------
+    # 🔐 SLUG OR ID LOOKUP
+    # ----------------------------
     def get_object(self):
         lookup_value = self.kwargs.get(self.lookup_url_kwarg)
 

@@ -12,6 +12,8 @@ class OrderProductSerializer(serializers.ModelSerializer):
     """
     Used inside Orders to show minimal product info.
     """
+    price = serializers.SerializerMethodField()
+    wholesale_price = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
     class Meta:
@@ -27,6 +29,15 @@ class OrderProductSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(url)
             return url
         return None
+
+    def get_price(self, obj):
+        discount = getattr(obj, 'display_discount_price', None)
+        if discount:
+            return discount
+        return getattr(obj, 'display_price', None)
+
+    def get_wholesale_price(self, obj):
+        return getattr(obj, 'display_wholesale_price', None)
 
 
 class OrderStatusSerializer(serializers.ModelSerializer):
@@ -180,10 +191,16 @@ class OrderSerializer(serializers.ModelSerializer):
                 quantity = item.get('quantity', 1)
                 product = Product.objects.get(id=product_id)
 
-                if is_wholesaler and product.wholesale_price > 0:
-                    final_price = product.wholesale_price
+                wholesale = getattr(product, 'display_wholesale_price', None)
+                discount = getattr(product, 'display_discount_price', None)
+                base_price = getattr(product, 'display_price', None)
+
+                if is_wholesaler and wholesale and wholesale > 0:
+                    final_price = wholesale
+                elif discount and discount > 0:
+                    final_price = discount
                 else:
-                    final_price = product.price
+                    final_price = base_price
 
                 OrderItem.objects.create(
                     order=order,
