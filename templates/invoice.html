@@ -141,15 +141,16 @@
 
         <p>
           <strong>Payment Status:</strong>
-          {% if order.payment.is_paid %} Paid {% else %} Unpaid {% endif %}
+          {% if order.payment_info.is_paid %} Paid {% else %} Cash On Delivery
+          {% endif %}
         </p>
 
         <p>
-          <strong>Payment Method:</strong> {{ order.payment.payment_method }}
+          <strong>Payment Method:</strong> {{ order.payment_info.payment_method }}
         </p>
         <p>
           <strong>Transaction ID:</strong>
-          {{ order.payment.transaction_id|default:"N/A" }}
+          {{ order.payment_info.transaction_id|default:"N/A" }}
         </p>
 
         <p><strong>Customer Name:</strong> {{ order.full_name }}</p>
@@ -170,7 +171,10 @@
         <tbody>
           {% for item in items %}
           <tr>
-            <td>{{ item.product.name }} | {{ item.variant.color }} | {{ item.variant.ram }}GB | {{ item.variant.storage }}GB</td>
+            <td>
+              {{ item.product.name }} | {{ item.variant.color }} | {{
+              item.variant.ram }}GB | {{ item.variant.storage }}GB
+            </td>
             <td>{{ item.quantity }}</td>
             <td>৳ {{ item.price|floatformat:2 }}</td>
             <td>৳ {{ item.subtotal|floatformat:2 }}</td>
