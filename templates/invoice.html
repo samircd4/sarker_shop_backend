@@ -170,7 +170,7 @@
         <tbody>
           {% for item in items %}
           <tr>
-            <td>{{ item.product.name }}</td>
+            <td>{{ item.product.name }} | {{ item.variant.color }} | {{ item.variant.ram }}GB | {{ item.variant.storage }}GB</td>
             <td>{{ item.quantity }}</td>
             <td>৳ {{ item.price|floatformat:2 }}</td>
             <td>৳ {{ item.subtotal|floatformat:2 }}</td>
@@ -190,13 +190,12 @@
       <div class="address">
         <strong>Shipping Address:</strong><br />
 
-        {% if order.address %} 
-            {{ order.address.full_name }}<br />
-            {{ order.address.phone }}<br />
-            {{ order.address.address }}<br />
-            {{ order.address.sub_district }}, {{ order.address.district }}, {{
-            order.address.division }} {% else %} {{ order.shipping_address }}<br />
-            {{ order.sub_district }}, {{ order.district }}, {{ order.division }} 
+        {% if order.address %} {{ order.address.full_name }}<br />
+        {{ order.address.phone }}<br />
+        {{ order.address.address }}<br />
+        {{ order.address.sub_district }}, {{ order.address.district }}, {{
+        order.address.division }} {% else %} {{ order.shipping_address }}<br />
+        {{ order.sub_district }}, {{ order.district }}, {{ order.division }}
         {%endif %}
       </div>
 
