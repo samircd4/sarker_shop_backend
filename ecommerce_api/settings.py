@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
 
     # Custom apps
+    'smart_selects',
     'accounts',
     'orders',
     'products',

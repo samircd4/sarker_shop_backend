@@ -2,6 +2,44 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from smart_selects.db_fields import ChainedForeignKey
+
+# --- Geolocation Models ---
+class Division(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    bn_name = models.CharField(max_length=100, blank=True, null=True)
+    lat = models.CharField(max_length=20, blank=True, null=True)
+    long = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+class District(models.Model):
+    division = models.ForeignKey(Division, on_delete=models.CASCADE, related_name='districts')
+    name = models.CharField(max_length=100)
+    bn_name = models.CharField(max_length=100, blank=True, null=True)
+    lat = models.CharField(max_length=20, blank=True, null=True)
+    long = models.CharField(max_length=20, blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class SubDistrict(models.Model):
+    district = models.ForeignKey(District, on_delete=models.CASCADE, related_name='sub_districts')
+    name = models.CharField(max_length=100)
+    bn_name = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Sub-District (Upazila)"
+        verbose_name_plural = "Sub-Districts (Upazilas)"
+
+    def __str__(self):
+        return self.name
+
 
 class Customer(models.Model):
     CUSTOMER_TYPES = (
@@ -42,10 +80,30 @@ class Address(models.Model):
     phone = models.CharField(max_length=20, help_text="Receiver's Phone")
     
     # 2. Location Details
+    division = models.ForeignKey(Division, on_delete=models.PROTECT, null=True, blank=True)
+    district = ChainedForeignKey(
+        District,
+        chained_field="division",
+        chained_model_field="division",
+        show_all=False,
+        auto_choose=True,
+        sort=True,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
+    )
+    sub_district = ChainedForeignKey(
+        SubDistrict,
+        chained_field="district",
+        chained_model_field="district",
+        show_all=False,
+        auto_choose=True,
+        sort=True,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
+    )
     address = models.TextField(help_text="House no. / Building / Street")
-    division = models.CharField(max_length=100)      # e.g. Dhaka
-    district = models.CharField(max_length=100)      # e.g. Dhaka City
-    sub_district = models.CharField(max_length=100)  # e.g. Dhanmondi / Upazila
     
     # 3. Preferences
     address_type = models.CharField(max_length=10, choices=ADDRESS_TYPES, default='Home')

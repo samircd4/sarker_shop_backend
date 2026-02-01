@@ -24,6 +24,9 @@ def api_root(request, format=None):
         'accounts': {
             'customers': reverse('customer-list', request=request, format=format),
             'addresses': reverse('address-list', request=request, format=format),
+            'divisions': reverse('division-list', request=request, format=format),
+            'districts': reverse('district-list', request=request, format=format),
+            'sub_districts': reverse('sub-district-list', request=request, format=format),
         },
         'catalog': {
             'products': reverse('product-list', request=request, format=format),

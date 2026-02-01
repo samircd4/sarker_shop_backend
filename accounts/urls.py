@@ -9,12 +9,18 @@ from .views import (
     AddressViewSet,
     LogoutView,
     ForgotPasswordView,
-    ResetPasswordView
+    ResetPasswordView,
+    DivisionViewSet,
+    DistrictViewSet,
+    SubDistrictViewSet
 )
 
 router = DefaultRouter()
 router.register(r'customers', CustomerViewSet, basename='customer')
 router.register(r'addresses', AddressViewSet, basename='address')
+router.register(r'divisions', DivisionViewSet, basename='division')
+router.register(r'districts', DistrictViewSet, basename='district')
+router.register(r'sub-districts', SubDistrictViewSet, basename='sub-district')
 
 urlpatterns = [
     # Auth Endpoints

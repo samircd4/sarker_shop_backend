@@ -148,10 +148,6 @@
         <p>
           <strong>Payment Method:</strong> {{ order.payment_info.payment_method }}
         </p>
-        <p>
-          <strong>Transaction ID:</strong>
-          {{ order.payment_info.transaction_id|default:"N/A" }}
-        </p>
 
         <p><strong>Customer Name:</strong> {{ order.full_name }}</p>
         <p><strong>Phone:</strong> {{ order.phone }}</p>

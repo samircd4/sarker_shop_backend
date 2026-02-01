@@ -7,11 +7,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 
-from .models import Customer, Address
+from .models import Customer, Address, Division, District, SubDistrict
 from .serializers import (
     RegisterSerializer, CustomerSerializer, AddressSerializer,
     ChangePasswordSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    DivisionSerializer, DistrictSerializer, SubDistrictSerializer
 )
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
@@ -225,3 +226,62 @@ class AddressViewSet(viewsets.ModelViewSet):
         address.is_default = True
         address.save()
         return Response({'status': 'default address set'})
+
+
+# --- Location Views ---
+
+@extend_schema(tags=['Locations'])
+class DivisionViewSet(viewsets.ModelViewSet):
+    """
+    Manage Divisions.
+    """
+    queryset = Division.objects.all()
+    serializer_class = DivisionSerializer
+    pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+@extend_schema(tags=['Locations'])
+class DistrictViewSet(viewsets.ModelViewSet):
+    """
+    Manage Districts.
+    Filter by division: ?division_id=X
+    """
+    serializer_class = DistrictSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = District.objects.all()
+        division_id = self.request.query_params.get('division_id')
+        if division_id:
+            queryset = queryset.filter(division_id=division_id)
+        return queryset
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+@extend_schema(tags=['Locations'])
+class SubDistrictViewSet(viewsets.ModelViewSet):
+    """
+    Manage Sub-Districts.
+    Filter by district: ?district_id=Y
+    """
+    serializer_class = SubDistrictSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = SubDistrict.objects.all()
+        district_id = self.request.query_params.get('district_id')
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
+        return queryset
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]

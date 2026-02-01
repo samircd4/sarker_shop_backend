@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
+from django.utils import timezone
 from accounts.serializers import AddressSerializer
 from products.models import Product, ProductVariant
 from accounts.models import Address
@@ -59,7 +60,7 @@ class PaymentInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentInfo
         fields = ['transaction_id', 'is_paid',
-                  'payment_method', 'payment_date']
+                  'payment_method', 'payment_date', 'amount']
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -110,6 +111,10 @@ class OrderSerializer(serializers.ModelSerializer):
     district = serializers.CharField(required=False)
     sub_district = serializers.CharField(required=False)
 
+    # Payment Input (Write Only)
+    payment_method = serializers.CharField(write_only=True, required=False)
+    payment_details = serializers.DictField(write_only=True, required=False, allow_null=True)
+
     # Flattened fields for backward compatibility / ease of use
     status = serializers.CharField(
         source='order_status.display_name', read_only=True)
@@ -129,10 +134,14 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'address',      # Legacy object (Read)
             'address_id',   # Legacy ID (Write - Optional)
+            'address_type',
 
             # Guest Fields
             'email', 'full_name', 'phone',
             'shipping_address', 'division', 'district', 'sub_district',
+            
+            # Payment Input (Write Only)
+            'payment_method', 'payment_details',
 
             'items',        # Full objects (Read)
             'items_input'   # List of dicts (Write)
@@ -192,11 +201,11 @@ class OrderSerializer(serializers.ModelSerializer):
             validated_data['shipping_address'] = validated_data.get(
                 'shipping_address') or address_obj.address
             validated_data['division'] = validated_data.get(
-                'division') or address_obj.division
+                'division') or (address_obj.division.name if address_obj.division else None)
             validated_data['district'] = validated_data.get(
-                'district') or address_obj.district
+                'district') or (address_obj.district.name if address_obj.district else None)
             validated_data['sub_district'] = validated_data.get(
-                'sub_district') or address_obj.sub_district
+                'sub_district') or (address_obj.sub_district.name if address_obj.sub_district else None)
             # If authenticated, email might default to user email
             if not validated_data.get('email') and customer:
                 validated_data['email'] = customer.email
@@ -208,8 +217,20 @@ class OrderSerializer(serializers.ModelSerializer):
                 defaults={'display_name': 'Pending'}
             )
 
-            # Create Payment Info placeholder
-            payment_info = PaymentInfo.objects.create()
+            # Create Payment Info
+            p_method = validated_data.pop('payment_method', 'cod')
+            p_details = validated_data.pop('payment_details', {}) or {}
+            
+            # If cod, p_details might be None/empty, which is fine.
+            
+            payment_info = PaymentInfo.objects.create(
+                payment_method=p_method,
+                transaction_id=p_details.get('transaction_id'),
+                paid_from=p_details.get('paid_from'),
+                amount=p_details.get('amount') or 0,
+                payment_date=timezone.now(),
+                is_paid=False # default
+            )
 
             # Create Order
             order = Order.objects.create(

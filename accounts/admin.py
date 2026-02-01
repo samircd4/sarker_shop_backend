@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Customer, Address
+from .models import Customer, Address, Division, District, SubDistrict
 
 # --- 1. CUSTOMER ADMIN ---
 
@@ -29,6 +29,25 @@ class AddressAdmin(admin.ModelAdmin):
 
     # Search bar
     search_fields = ('full_name', 'phone', 'address', 'customer__name')
+
+
+# --- 3. LOCATION ADMIN ---
+@admin.register(Division)
+class DivisionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'bn_name', 'lat', 'long')
+    search_fields = ('name', 'bn_name')
+
+@admin.register(District)
+class DistrictAdmin(admin.ModelAdmin):
+    list_display = ('name','bn_name', 'division', 'lat', 'long')
+    list_filter = ('division',)
+    search_fields = ('name', 'bn_name')
+
+@admin.register(SubDistrict)
+class SubDistrictAdmin(admin.ModelAdmin):
+    list_display = ('name', 'district', 'bn_name')
+    list_filter = ('district__division', 'district')
+    search_fields = ('name', 'bn_name')
 
 
 # --- User Admin Integration ---

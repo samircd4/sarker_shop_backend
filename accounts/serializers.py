@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Customer, Address
+from .models import Customer, Address, Division, District, SubDistrict
 from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import uuid
@@ -137,6 +137,10 @@ class AddressSerializer(serializers.ModelSerializer):
     """
     Matches the UI screenshot exactly.
     """
+    division = serializers.SlugRelatedField(slug_field='name', queryset=Division.objects.all())
+    district = serializers.SlugRelatedField(slug_field='name', queryset=District.objects.all())
+    sub_district = serializers.SlugRelatedField(slug_field='name', queryset=SubDistrict.objects.all())
+
     class Meta:
         model = Address
         fields = [
@@ -152,3 +156,21 @@ class AddressSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         validated_data['customer'] = user.customer
         return super().create(validated_data)
+
+
+# --- Location Serializers ---
+
+class DivisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Division
+        fields = ['id', 'name', 'bn_name', 'lat', 'long']
+
+class DistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = District
+        fields = ['id', 'division', 'name', 'bn_name', 'lat', 'long']
+
+class SubDistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubDistrict
+        fields = ['id', 'district', 'name', 'bn_name']
