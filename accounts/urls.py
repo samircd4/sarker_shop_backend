@@ -12,7 +12,9 @@ from .views import (
     ResetPasswordView,
     DivisionViewSet,
     DistrictViewSet,
-    SubDistrictViewSet
+    SubDistrictViewSet,
+    GoogleLogin,
+    FacebookLogin
 )
 
 router = DefaultRouter()
@@ -34,6 +36,8 @@ urlpatterns = [
     path('auth/forgot-password/',
          ForgotPasswordView.as_view(), name='forgot_password'),
     path('auth/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
+    path('auth/google/', GoogleLogin.as_view(), name='google_login'),
+    path('auth/facebook/', FacebookLogin.as_view(), name='facebook_login'),
 
     # Profile & Address Endpoints
     path('', include(router.urls)),
