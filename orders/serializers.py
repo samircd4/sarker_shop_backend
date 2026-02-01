@@ -241,20 +241,24 @@ class OrderSerializer(serializers.ModelSerializer):
             )
 
             # Source items: provided items_input or current cart items
+            # Identify the cart for possible clearing later
+            cart = None
+            if user.is_authenticated:
+                cart = Cart.objects.filter(user=user).first()
+            else:
+                if not request.session.session_key:
+                    request.session.create()
+                cart = Cart.objects.filter(
+                    session_key=request.session.session_key).first()
+
             if items_data:
                 source_items = items_data
-                is_cart = False
+                is_cart = True # We treat this as a cart-clearing event
             else:
                 # Build from cart
                 is_cart = True
-                cart = None
-                if user.is_authenticated:
-                    cart = Cart.objects.filter(user=user).first()
-                else:
-                    if not request.session.session_key:
-                        request.session.create()
-                    cart = Cart.objects.filter(
-                        session_key=request.session.session_key).first()
+                if not cart:
+                    raise serializers.ValidationError("Cart is empty.")
                 source_items = [
                     {
                         'product_id': ci.product_id,
@@ -338,7 +342,7 @@ class OrderSerializer(serializers.ModelSerializer):
                         )
 
             # Optionally clear cart after order creation
-            if 'is_cart' in locals() and is_cart:
+            if 'is_cart' in locals() and is_cart and cart:
                 try:
                     cart.items.all().delete()
                 except Exception:
