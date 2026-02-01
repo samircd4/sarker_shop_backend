@@ -125,16 +125,21 @@ class Address(models.Model):
 
 @receiver(post_save, sender=User)
 def create_customer_profile(sender, instance, created, **kwargs):
+    """
+    Auto-create or update Customer profile when User is created.
+    Using get_or_create to avoid IntegrityErrors if a profile existed partially.
+    """
     if created:
-        # Try to get name from first_name and last_name, fallback to username
         full_name = f"{instance.first_name} {instance.last_name}".strip()
         if not full_name:
             full_name = instance.username
-
-        Customer.objects.create(
+            
+        Customer.objects.get_or_create(
             user=instance,
-            name=full_name,
-            email=instance.email
+            defaults={
+                'name': full_name,
+                'email': instance.email
+            }
         )
 
 @receiver(post_save, sender=User)
@@ -142,28 +147,3 @@ def save_customer_profile(sender, instance, **kwargs):
     # Ensure customer exists before saving
     if hasattr(instance, 'customer'):
         instance.customer.save()
-
-# --- Social Auth Signals ---
-from allauth.socialaccount.signals import social_account_added, social_account_updated
-
-@receiver([social_account_added, social_account_updated])
-def sync_social_data(sender, request, sociallogin, **kwargs):
-    user = sociallogin.user
-    customer, created = Customer.objects.get_or_create(user=user)
-    
-    # Sync Name
-    full_name = f"{user.first_name} {user.last_name}".strip()
-    if full_name:
-        customer.name = full_name
-    
-    # Sync Avatar
-    if sociallogin.account.provider == 'google':
-        avatar_url = sociallogin.account.extra_data.get('picture')
-        if avatar_url:
-            customer.social_avatar_url = avatar_url
-    elif sociallogin.account.provider == 'facebook':
-        avatar_url = f"https://graph.facebook.com/{sociallogin.account.uid}/picture?type=large"
-        if avatar_url:
-            customer.social_avatar_url = avatar_url
-
-    customer.save()

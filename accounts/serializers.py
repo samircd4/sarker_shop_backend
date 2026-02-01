@@ -116,9 +116,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     Read/Write customer details.
     """
     username = serializers.CharField(source='user.username', read_only=True)
-
     is_wholesaler = serializers.SerializerMethodField()
-    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
@@ -133,20 +131,31 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_is_wholesaler(self, obj):
         return obj.is_wholesaler
 
-    @extend_schema_field(serializers.URLField())
-    def get_avatar(self, obj):
-        # 1. Check if user has uploaded a custom image
-        if obj.avatar:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.avatar.url)
-            return obj.avatar.url
+    def to_representation(self, instance):
+        """
+        Dynamically handle name and avatar fallbacks for the frontend.
+        """
+        data = super().to_representation(instance)
         
-        # 2. Fallback to social login avatar
-        if obj.social_avatar_url:
-            return obj.social_avatar_url
+        # 1. Handle Name Fallback
+        if not instance.name or not instance.name.strip():
+            user = instance.user
+            full_name = f"{user.first_name} {user.last_name}".strip()
+            data['name'] = full_name if full_name else user.username
             
-        return None
+        # 2. Handle Avatar Fallback
+        # If no custom avatar uploaded, check social_avatar_url
+        if not instance.avatar:
+            if instance.social_avatar_url:
+                data['avatar'] = instance.social_avatar_url
+            else:
+                data['avatar'] = None
+        else:
+            # If there is a local avatar, super().to_representation 
+            # already provided the absolute URL via the default field.
+            pass
+            
+        return data
 
 
 class AddressSerializer(serializers.ModelSerializer):
