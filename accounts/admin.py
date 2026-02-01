@@ -9,7 +9,7 @@ from .models import Customer, Address, Division, District, SubDistrict
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     # Now you can see Email and Phone directly in the list
-    list_display = ('name', 'email', 'phone_number', 'customer_type', 'user')
+    list_display = ('name', 'email', 'phone_number', 'customer_type', 'avatar', 'user')
     list_filter = ('customer_type', 'created_at')
     search_fields = ('name', 'email', 'phone_number', 'user__username')
 

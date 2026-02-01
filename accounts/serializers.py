@@ -124,7 +124,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'username', 'name',
             'email', 'phone_number', 'customer_type',
-            'is_wholesaler', 'created_at'
+            'avatar', 'is_wholesaler', 'created_at'
         ]
         read_only_fields = ['user', 'customer_type', 'created_at']
 

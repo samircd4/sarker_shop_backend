@@ -55,6 +55,7 @@ class Customer(models.Model):
     email = models.EmailField(help_text="Contact Email", unique=True) # Can be different from User login email
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     customer_type = models.CharField(max_length=20, choices=CUSTOMER_TYPES, default='retail')
+    avatar = models.ImageField(upload_to='customers/avatars/', null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
 
