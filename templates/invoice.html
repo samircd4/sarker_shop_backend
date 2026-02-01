@@ -172,8 +172,7 @@
           {% for item in items %}
           <tr>
             <td>
-              {{ item.product.name }} | {{ item.variant.color }} | {{
-              item.variant.ram }}GB | {{ item.variant.storage }}GB
+              {{ item.product.name }} | {{ item.variant.color }} | {{ item.variant.ram }}GB | {{ item.variant.storage }}GB
             </td>
             <td>{{ item.quantity }}</td>
             <td>৳ {{ item.price|floatformat:2 }}</td>

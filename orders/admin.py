@@ -167,10 +167,10 @@ class OrderStatusAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentInfo)
 class PaymentInfoAdmin(admin.ModelAdmin):
-    list_display = ('transaction_id', 'is_paid',
+    list_display = ('transaction_id', 'amount', 'paid_from', 'is_paid',
                     'payment_method', 'created_at')
     list_filter = ('is_paid', 'payment_method')
-    search_fields = ('transaction_id',)
+    search_fields = ('transaction_id', 'paid_from')
 
 
 @admin.register(Cart)

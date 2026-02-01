@@ -31,6 +31,8 @@ class PaymentInfo(models.Model):
     payment_method = models.CharField(
         max_length=50, default='cod', help_text="e.g. 'stripe', 'cod'")
     payment_date = models.DateTimeField(blank=True, null=True)
+    paid_from = models.CharField(blank=True, null=True, help_text="Source or payer info")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
