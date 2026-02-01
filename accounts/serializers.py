@@ -118,19 +118,35 @@ class CustomerSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
 
     is_wholesaler = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
         fields = [
             'id', 'user', 'username', 'name',
             'email', 'phone_number', 'customer_type',
-            'avatar', 'is_wholesaler', 'created_at'
+            'avatar', 'social_avatar_url', 'is_wholesaler', 'created_at'
         ]
         read_only_fields = ['user', 'customer_type', 'created_at']
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_wholesaler(self, obj):
         return obj.is_wholesaler
+
+    @extend_schema_field(serializers.URLField())
+    def get_avatar(self, obj):
+        # 1. Check if user has uploaded a custom image
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        
+        # 2. Fallback to social login avatar
+        if obj.social_avatar_url:
+            return obj.social_avatar_url
+            
+        return None
 
 
 class AddressSerializer(serializers.ModelSerializer):
