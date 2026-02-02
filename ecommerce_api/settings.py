@@ -208,7 +208,7 @@ ALLOWED_HOSTS = [
 # =========================
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",      # Frontend (Vite)
-    "http://127.0.0.1:5173",      # Frontend (Vite)
+    "http://192.168.0.100:5173",      # Frontend (Vite)
 ]
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -218,7 +218,8 @@ CORS_ALLOW_CREDENTIALS = True
 # CSRF (Admin / Cookies)
 # =========================
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000" # Paste Frontend Ngrok URL here (WITH https://)
+    "http://127.0.0.1:8000", # Paste Frontend Ngrok URL here (WITH https://)
+    "http://192.168.0.100:8000"
 ]
 
 CSRF_COOKIE_SECURE = True
