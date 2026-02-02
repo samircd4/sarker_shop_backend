@@ -114,6 +114,7 @@ class OrderAdmin(admin.ModelAdmin):
         'payment_info',
         'invoice_link',
     )
+    list_editable = ('order_status',)
 
     list_filter = ('order_status', 'created_at')
     search_fields = ('customer__name', 'customer__email', 'id', 'phone')

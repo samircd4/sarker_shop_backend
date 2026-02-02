@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'orders',
     'products',
     'reviews',
+    'web',
     'api',
 
     # Social Login

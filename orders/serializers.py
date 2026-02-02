@@ -132,6 +132,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'total_amount',
             'payment',      # Read-only nested object
             'created_at',
+            'updated_at',
             'address',      # Legacy object (Read)
             'address_id',   # Legacy ID (Write - Optional)
             'address_type',
@@ -146,7 +147,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'items',        # Full objects (Read)
             'items_input'   # List of dicts (Write)
         ]
-        read_only_fields = ['total_amount', 'status', 'payment', 'created_at']
+        read_only_fields = ['total_amount', 'status', 'payment', 'created_at', 'updated_at']
 
     def validate(self, data):
         request = self.context['request']

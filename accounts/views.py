@@ -28,6 +28,8 @@ class FacebookLogin(SocialLoginView):
     adapter_class = FacebookOAuth2Adapter
 
 
+from orders.models import Order
+
 class RegisterView(generics.CreateAPIView):
     """
     Handles user registration.
@@ -42,7 +44,36 @@ class RegisterView(generics.CreateAPIView):
         responses={201: RegisterSerializer}
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        response = super().post(request, *args, **kwargs)
+        
+        # Check for order linking
+        link_order_id = request.data.get('link_order_id')
+        if link_order_id and response.status_code == 201:
+            try:
+                # Get the created user
+                # The serializer returns 'user' object or data. 
+                # RegisterSerializer usually saves the user.
+                # We can find the user by email or username from request data since we just created it.
+                email = request.data.get('email')
+                user = User.objects.get(email=email)
+                
+                # Verify order exists and has no customer yet (guest order)
+                # We should also probably verify the email matches to prevent stealing orders, 
+                # but if we assume the OrderSuccess page passed it, the user just placed it.
+                # Ideally check if order.email == user.email
+                order = Order.objects.get(id=link_order_id)
+                
+                if order.email == user.email and order.customer is None:
+                    # Link it
+                    if hasattr(user, 'customer'):
+                        order.customer = user.customer
+                        order.save()
+            except Exception as e:
+                # Log error but don't fail registration
+                print(f"Failed to link order {link_order_id}: {e}")
+                pass
+                
+        return response
 
     @extend_schema(exclude=True)
     def get(self, request, *args, **kwargs):

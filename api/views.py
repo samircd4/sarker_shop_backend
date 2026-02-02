@@ -41,4 +41,8 @@ def api_root(request, format=None):
             'cart': reverse('cart-list', request=request, format=format),
             'checkout': reverse('checkout-list', request=request, format=format),
         },
+        'web': {
+            'contact': reverse('contact-list', request=request, format=format),
+            'subscribe': reverse('subscribe-list', request=request, format=format),
+        },
     })
