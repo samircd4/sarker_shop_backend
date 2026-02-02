@@ -198,8 +198,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "192.168.0.100",
-    "testserver",
+    "192.168.0.100", # Paste Frontend Ngrok URL here (WITHOUT https://)
 ]
 
 
@@ -211,16 +210,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",      # Frontend (Vite)
     "http://127.0.0.1:5173",      # Frontend (Vite)
 ]
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 
 
 # =========================
 # CSRF (Admin / Cookies)
 # =========================
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8000" # Paste Frontend Ngrok URL here (WITH https://)
 ]
 
 CSRF_COOKIE_SECURE = True
@@ -281,9 +279,8 @@ REST_AUTH = {
 
 # Allauth / Social Account Settings
 ACCOUNT_EMAIL_VERIFICATION = 'none'
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_USER_MODEL_UNIQUE_EMAIL = True
 ACCOUNT_MAX_EMAIL_ADDRESSES = 1
 
