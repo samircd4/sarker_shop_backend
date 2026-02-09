@@ -67,6 +67,10 @@ class Customer(models.Model):
     def is_wholesaler(self):
         return self.customer_type == 'wholesale'
 
+    @property
+    def is_staff(self):
+        return self.user.is_staff
+
 
 # --- 2. Address Book (Linked to Customer) ---
 class Address(models.Model):
