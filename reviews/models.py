@@ -26,6 +26,20 @@ class Review(models.Model):
         return f"{self.rating}★ - {self.customer.name}"
 
 
+class Question(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='questions')
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name='questions')
+    question = models.TextField()
+    answer = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Q: {self.question[:30]}... ({self.customer.name})"
+
+
 @receiver([post_save, post_delete], sender=Review)
 def update_product_rating(sender, instance, **kwargs):
     product = instance.product
@@ -35,4 +49,12 @@ def update_product_rating(sender, instance, **kwargs):
     )
     product.rating = aggregate_data['avg_rating'] or 0.0
     product.reviews_count = aggregate_data['count'] or 0
+    product.save()
+
+
+@receiver([post_save, post_delete], sender=Question)
+def update_product_questions_count(sender, instance, **kwargs):
+    product = instance.product
+    count = Question.objects.filter(product=product).count()
+    product.questions_count = count
     product.save()

@@ -159,10 +159,14 @@ class OrderItem(models.Model):
             except Exception:
                 price_zero = True
             if price_zero:
+                is_wholesaler = False
+                if self.order.customer and self.order.customer.customer_type == 'wholesale':
+                    is_wholesaler = True
+                
                 if self.variant:
-                    self.price = self.variant.price
+                    self.price = self.variant.wholesale_price if is_wholesaler and self.variant.wholesale_price else self.variant.price
                 else:
-                    self.price = self.product.price
+                    self.price = self.product.wholesale_price if is_wholesaler and self.product.wholesale_price else self.product.price
         super().save(*args, **kwargs)
         # update order total
         self.order.update_total_amount()

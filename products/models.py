@@ -121,6 +121,7 @@ class Product(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
     reviews_count = models.PositiveIntegerField(default=0)
+    questions_count = models.PositiveIntegerField(default=0)
 
     # --- 6. Timestamps ---
     created_at = models.DateTimeField(auto_now_add=True)

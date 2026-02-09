@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
+from reviews.serializers import ReviewSerializer, QuestionSerializer
 
 from .models import (
     Category, Brand, Product, ProductImage, ProductSpecification,
@@ -30,6 +31,20 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             'id', 'sku', 'price', 'wholesale_price', 'discount_price',
             'stock_quantity', 'ram', 'storage', 'color', 'is_active'
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        is_wholesaler = False
+        if request and request.user and request.user.is_authenticated:
+            if request.user.is_staff:
+                is_wholesaler = True
+            elif hasattr(request.user, 'customer') and request.user.customer.is_wholesaler:
+                is_wholesaler = True
+        
+        if not is_wholesaler:
+            data.pop('wholesale_price', None)
+        return data
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -68,7 +83,7 @@ class SimpleProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'wholesale_price', 'image', 'slug']
+        fields = ['id', 'name', 'price', 'wholesale_price', 'image', 'slug', 'rating', 'reviews_count']
 
     def get_price(self, obj):
         return obj.display_price
@@ -77,7 +92,27 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         return obj.display_wholesale_price
 
     def get_image(self, obj):
-        return obj.image.url if obj.image else None
+        if obj.image:
+            request = self.context.get('request')
+            url = obj.image.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        is_wholesaler = False
+        if request and request.user and request.user.is_authenticated:
+            if request.user.is_staff:
+                is_wholesaler = True
+            elif hasattr(request.user, 'customer') and request.user.customer.is_wholesaler:
+                is_wholesaler = True
+        
+        if not is_wholesaler:
+            data.pop('wholesale_price', None)
+        return data
 
 
 # --- Main Product Serializer ---
@@ -91,6 +126,8 @@ class ProductSerializer(serializers.ModelSerializer):
     specifications = ProductSpecificationSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
     related_products = SimpleProductSerializer(many=True, read_only=True)
+    reviews = ReviewSerializer(many=True, read_only=True)
+    questions = QuestionSerializer(many=True, read_only=True)
 
     price = serializers.SerializerMethodField(read_only=True)
     wholesale_price = serializers.SerializerMethodField()
@@ -144,7 +181,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'related_products_ids',
             'related_products',
 
-            'rating', 'reviews_count',
+            'rating', 'reviews_count', 'reviews', 'questions',
             'is_featured', 'is_bestseller', 'is_active',
             'created_at', 'updated_at',
         ]
@@ -163,7 +200,23 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.price
 
     def get_wholesale_price(self, obj):
-        return obj.display_wholesale_price
+        request = self.context.get('request')
+        is_wholesaler = False
+        if request and request.user and request.user.is_authenticated:
+            if request.user.is_staff:
+                is_wholesaler = True
+            elif hasattr(request.user, 'customer') and request.user.customer.is_wholesaler:
+                is_wholesaler = True
+        
+        if is_wholesaler:
+            return obj.display_wholesale_price
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get('wholesale_price') is None:
+            data.pop('wholesale_price', None)
+        return data
 
     def get_discount_price(self, obj):
         return obj.display_discount_price
