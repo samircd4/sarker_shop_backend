@@ -9,9 +9,27 @@ from django.urls import reverse
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.templatetags.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
+from email.mime.image import MIMEImage
+import os
+
+def attach_logo(email_message):
+    """
+    Attaches the brand logo to an EmailMessage for CID embedding.
+    """
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+    if os.path.exists(logo_path):
+        try:
+            with open(logo_path, 'rb') as f:
+                logo_data = f.read()
+                logo_image = MIMEImage(logo_data)
+                logo_image.add_header('Content-ID', '<logo_image>')
+                email_message.attach(logo_image)
+        except Exception:
+            pass # Fallback to no logo if file is missing or corrupted
 
 from .models import Customer, Address, Division, District, SubDistrict
 from .serializers import (
@@ -79,13 +97,26 @@ class RegisterView(generics.CreateAPIView):
                 
                 full_name = request.data.get('full_name', 'User')
                 
-                send_mail(
+                # Render HTML Template
+                from django.template.loader import render_to_string
+                from django.utils.html import strip_tags
+                from django.core.mail import EmailMultiAlternatives
+
+                html_content = render_to_string('emails/welcome_email.html', {
+                    'full_name': full_name,
+                    'verify_link': verify_link,
+                })
+                text_content = strip_tags(html_content)
+
+                email_message = EmailMultiAlternatives(
                     subject="Welcome to Sarker Shop!",
-                    message=f"Hi {full_name},\n\nWelcome to Sarker Shop! We are excited to have you on board.\n\nPlease click the link below to verify your email address and get started:\n{verify_link}\n\nBest regards,\nThe Sarker Shop Team",
+                    body=text_content,
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[email],
-                    fail_silently=True,
+                    to=[email]
                 )
+                email_message.attach_alternative(html_content, "text/html")
+                attach_logo(email_message)
+                email_message.send(fail_silently=True)
 
                 # 4. Check for order linking
                 link_order_id = request.data.get('link_order_id')
@@ -225,14 +256,26 @@ class ForgotPasswordView(generics.GenericAPIView):
             frontend_url = "http://localhost:5173" # Update this for production
             reset_link = f"{frontend_url}/password-reset-confirm/?uid={uid}&token={token}"
             
-            # Send Email
-            send_mail(
+            # Render HTML Template
+            from django.template.loader import render_to_string
+            from django.utils.html import strip_tags
+            from django.core.mail import EmailMultiAlternatives
+
+            html_content = render_to_string('emails/password_reset_email.html', {
+                'user': user,
+                'reset_link': reset_link,
+            })
+            text_content = strip_tags(html_content)
+
+            email_message = EmailMultiAlternatives(
                 subject="Password Reset Request",
-                message=f"Click the link below to reset your password:\n{reset_link}",
+                body=text_content,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
+                to=[email]
             )
+            email_message.attach_alternative(html_content, "text/html")
+            attach_logo(email_message)
+            email_message.send(fail_silently=False)
             
         except User.DoesNotExist:
             return Response({"error": "Email is not associated with any account."}, status=status.HTTP_400_BAD_REQUEST)
@@ -332,16 +375,29 @@ class ResendVerificationEmailView(generics.GenericAPIView):
         
         frontend_url = "http://localhost:5173" # Should verify logic uses settings in prod
         verify_link = f"{frontend_url}/verify-email/?uid={uid}&token={token}"
-        
+
+        # Render HTML Template
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
+        from django.core.mail import EmailMultiAlternatives
+
+        html_content = render_to_string('emails/verification_email.html', {
+            'full_name': getattr(user, 'customer', None).name if hasattr(user, 'customer') else user.username,
+            'verify_link': verify_link,
+        })
+        text_content = strip_tags(html_content)
+
         print(f"Sending verification email to {user.email}...")
         try:
-            send_mail(
+            email_message = EmailMultiAlternatives(
                 subject="Verify Your Email Address",
-                message=f"Please click the following link to verify your email address:\n{verify_link}",
+                body=text_content,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+                to=[user.email]
             )
+            email_message.attach_alternative(html_content, "text/html")
+            attach_logo(email_message)
+            email_message.send(fail_silently=False)
             print(f"Verification email sent to {user.email}")
         except Exception as e:
             print(f"Failed to send verification email: {e}")

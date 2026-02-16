@@ -3,9 +3,15 @@ from django.template.loader import render_to_string
 
 
 def generate_invoice_pdf(order):
+    import os
+    from django.conf import settings
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+    logo_url = f"file:///{logo_path.replace(os.sep, '/')}" if os.path.exists(logo_path) else None
+
     context = {
         "order": order,
         "items": order.items.all(),  # related_name="items"
+        "logo_url": logo_url,
     }
     
     html = render_to_string("invoice.html", context)

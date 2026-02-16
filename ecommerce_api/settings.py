@@ -252,6 +252,11 @@ STATIC_URL = '/static/'
 # 2. Where 'collectstatic' will put all your files
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# 3. Additional locations for static files
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
 
 STORAGES = {
     # 1. Default storage (for user-uploaded files like product images/orders)
