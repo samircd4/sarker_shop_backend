@@ -1,5 +1,11 @@
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.core.mail import send_mail
+from django.conf import settings
+from django.urls import reverse
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -18,14 +24,20 @@ from drf_spectacular.utils import extend_schema, OpenApiTypes
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from dj_rest_auth.registration.views import SocialLoginView
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.account.models import EmailAddress
 
 # --- Auth Views ---
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
+    client_class = OAuth2Client
+    callback_url = "http://localhost:5173" # Update for production
 
 class FacebookLogin(SocialLoginView):
     adapter_class = FacebookOAuth2Adapter
+
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 
 
 from orders.models import Order
@@ -48,30 +60,43 @@ class RegisterView(generics.CreateAPIView):
         
         # Check for order linking
         link_order_id = request.data.get('link_order_id')
-        if link_order_id and response.status_code == 201:
+        if response.status_code == 201:
             try:
-                # Get the created user
-                # The serializer returns 'user' object or data. 
-                # RegisterSerializer usually saves the user.
-                # We can find the user by email or username from request data since we just created it.
+                # 1. Get the created user
                 email = request.data.get('email')
                 user = User.objects.get(email=email)
                 
-                # Verify order exists and has no customer yet (guest order)
-                # We should also probably verify the email matches to prevent stealing orders, 
-                # but if we assume the OrderSuccess page passed it, the user just placed it.
-                # Ideally check if order.email == user.email
-                order = Order.objects.get(id=link_order_id)
+                # 2. Create EmailAddress (Unverified) for Allauth/Admin compatibility
+                from allauth.account.models import EmailAddress
+                EmailAddress.objects.get_or_create(user=user, email=email, defaults={'verified': False, 'primary': True})
+
+                # 3. Send Verification Email (Manual)
+                token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
                 
-                if order.email == user.email and order.customer is None:
-                    # Link it
-                    if hasattr(user, 'customer'):
-                        order.customer = user.customer
-                        order.save()
+                frontend_url = "http://localhost:5173"
+                verify_link = f"{frontend_url}/verify-email/?uid={uid}&token={token}"
+                
+                full_name = request.data.get('full_name', 'User')
+                
+                send_mail(
+                    subject="Welcome to Sarker Shop!",
+                    message=f"Hi {full_name},\n\nWelcome to Sarker Shop! We are excited to have you on board.\n\nPlease click the link below to verify your email address and get started:\n{verify_link}\n\nBest regards,\nThe Sarker Shop Team",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+
+                # 4. Check for order linking
+                link_order_id = request.data.get('link_order_id')
+                if link_order_id:
+                    order = Order.objects.get(id=link_order_id)
+                    if order.email == user.email and order.customer is None:
+                        if hasattr(user, 'customer'):
+                            order.customer = user.customer
+                            order.save()
             except Exception as e:
-                # Log error but don't fail registration
-                print(f"Failed to link order {link_order_id}: {e}")
-                pass
+                print(f"Post-register error: {e}")
                 
         return response
 
@@ -183,12 +208,36 @@ class ForgotPasswordView(generics.GenericAPIView):
         responses={200: OpenApiTypes.OBJECT}
     )
     def post(self, request):
-        # Stub implementation
-        email = request.data.get('email')
-        if not email:
-            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
-        # In a real app, send email with reset token
-        return Response({"message": "If the email exists, a reset link has been sent."}, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        try:
+            user = User.objects.get(email=email)
+            
+            # Generate token and uid
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Build reset link (Frontend URL)
+            # Assuming frontend runs on localhost:5173 for development or configured URL
+            # We can use a setting or hardcode for now based on the plan
+            frontend_url = "http://localhost:5173" # Update this for production
+            reset_link = f"{frontend_url}/password-reset-confirm/?uid={uid}&token={token}"
+            
+            # Send Email
+            send_mail(
+                subject="Password Reset Request",
+                message=f"Click the link below to reset your password:\n{reset_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            
+        except User.DoesNotExist:
+            return Response({"error": "Email is not associated with any account."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"message": "Password reset link has been sent to your email."}, status=status.HTTP_200_OK)
 
 
 class ResetPasswordView(generics.GenericAPIView):
@@ -202,8 +251,103 @@ class ResetPasswordView(generics.GenericAPIView):
         responses={200: OpenApiTypes.OBJECT}
     )
     def post(self, request):
-        # Stub implementation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Determine user from validated data (serializer set it)
+        user = serializer.validated_data['user']
+        new_password = serializer.validated_data['new_password']
+        
+        user.set_password(new_password)
+        user.save()
+        
         return Response({"message": "Password reset successfully"}, status=status.HTTP_200_OK)
+
+
+class VerifyEmailView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+    # Reuse ResetPasswordSerializer logic for uid/token validation or create a new one
+    # We can handle it manually here to avoid creating another serializer just for this
+    
+    @extend_schema(
+        summary="Verify Email",
+        description="Verify email using uid and token.",
+        request=None, 
+        parameters=[
+            OpenApiTypes.STR, OpenApiTypes.STR # loosely defined, usually query params?
+        ],
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    def post(self, request):
+        uidb64 = request.data.get('uidb64')
+        token = request.data.get('token')
+        
+        if not uidb64 or not token:
+            return Response({"error": "Missing uid or token"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"error": "Invalid UID"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if default_token_generator.check_token(user, token):
+            # Mark verified
+            # We can create/update EmailAddress from allauth
+            from allauth.account.models import EmailAddress
+            email_address, created = EmailAddress.objects.get_or_create(user=user, email=user.email)
+            email_address.verified = True
+            email_address.primary = True
+            email_address.save()
+            
+            return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+        
+        return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+class ResendVerificationEmailView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = None # No request body needed
+
+    @extend_schema(
+        summary="Resend Verification Email",
+        description="Resends the email verification link to the currently logged-in user.",
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    def post(self, request):
+        user = request.user
+        
+        # Ensure EmailAddress object exists
+        from allauth.account.models import EmailAddress
+        email_address, created = EmailAddress.objects.get_or_create(user=user, email=user.email, defaults={'verified': False, 'primary': True})
+        
+        if email_address.verified:
+             return Response({"message": "Email is already verified."}, status=status.HTTP_200_OK)
+
+        # Send Verification Email (Manual)
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        frontend_url = "http://localhost:5173" # Should verify logic uses settings in prod
+        verify_link = f"{frontend_url}/verify-email/?uid={uid}&token={token}"
+        
+        print(f"Sending verification email to {user.email}...")
+        try:
+            send_mail(
+                subject="Verify Your Email Address",
+                message=f"Please click the following link to verify your email address:\n{verify_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            print(f"Verification email sent to {user.email}")
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+            return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({"message": "Verification email sent."}, status=status.HTTP_200_OK)
 
 # --- Profile Views ---
 

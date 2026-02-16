@@ -10,6 +10,8 @@ from .views import (
     LogoutView,
     ForgotPasswordView,
     ResetPasswordView,
+    VerifyEmailView,
+    ResendVerificationEmailView,
     DivisionViewSet,
     DistrictViewSet,
     SubDistrictViewSet,
@@ -36,6 +38,8 @@ urlpatterns = [
     path('auth/forgot-password/',
          ForgotPasswordView.as_view(), name='forgot_password'),
     path('auth/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
+    path('auth/verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('auth/resend-verification-email/', ResendVerificationEmailView.as_view(), name='resend_verification_email'),
     path('auth/google/', GoogleLogin.as_view(), name='google_login'),
     path('auth/facebook/', FacebookLogin.as_view(), name='facebook_login'),
 

@@ -57,6 +57,7 @@ class Customer(models.Model):
     customer_type = models.CharField(max_length=20, choices=CUSTOMER_TYPES, default='retail')
     avatar = models.ImageField(upload_to='customers/avatars/', null=True, blank=True)
     social_avatar_url = models.URLField(max_length=500, null=True, blank=True)
+    is_email_verified = models.BooleanField(default=False, verbose_name="Email Verified")
     
     created_at = models.DateTimeField(auto_now_add=True)
 

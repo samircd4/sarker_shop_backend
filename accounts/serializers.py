@@ -5,6 +5,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import uuid
 from rest_framework.validators import UniqueValidator
+from allauth.account.models import EmailAddress
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -105,10 +106,36 @@ class LogoutSerializer(serializers.Serializer):
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
+    def validate_email(self, value):
+        # We don't want to reveal if the user exists, so we just return the value.
+        # The view will handle the logic.
+        return value
+
 
 class ResetPasswordSerializer(serializers.Serializer):
-    new_password = serializers.CharField()
+    uidb64 = serializers.CharField()
     token = serializers.CharField()
+    new_password = serializers.CharField(
+        min_length=8,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+
+    def validate(self, attrs):
+        try:
+            uid = urlsafe_base64_decode(attrs['uidb64']).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"uidb64": "Invalid UID"})
+
+        if not default_token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError({"token": "Invalid or expired token"})
+
+        attrs['user'] = user
+        return attrs
+
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -117,19 +144,24 @@ class CustomerSerializer(serializers.ModelSerializer):
     """
     username = serializers.CharField(source='user.username', read_only=True)
     is_wholesaler = serializers.SerializerMethodField()
+    is_email_verified = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
         fields = [
             'id', 'user', 'username', 'name',
             'email', 'phone_number', 'customer_type',
-            'avatar', 'social_avatar_url', 'is_wholesaler', 'is_staff', 'created_at'
+            'avatar', 'social_avatar_url', 'is_wholesaler', 'is_email_verified', 'is_staff', 'created_at'
         ]
         read_only_fields = ['user', 'customer_type', 'created_at']
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_wholesaler(self, obj):
         return obj.is_wholesaler
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_email_verified(self, obj):
+        return EmailAddress.objects.filter(user=obj.user, verified=True).exists()
 
     def to_representation(self, instance):
         """

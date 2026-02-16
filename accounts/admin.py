@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from .models import Customer, Address, Division, District, SubDistrict
+from allauth.account.models import EmailAddress
 
 # --- 1. CUSTOMER ADMIN ---
 
@@ -9,12 +10,45 @@ from .models import Customer, Address, Division, District, SubDistrict
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     # Now you can see Email and Phone directly in the list
-    list_display = ('name', 'email', 'phone_number', 'customer_type', 'avatar', 'user')
-    list_filter = ('customer_type', 'created_at')
+    list_display = ('name', 'email', 'is_email_verified', 'phone_number', 'customer_type', 'avatar', 'user')
+    list_editable = ('is_email_verified',)
+    list_filter = ('customer_type', 'is_email_verified', 'created_at')
     search_fields = ('name', 'email', 'phone_number', 'user__username')
 
     # You can also edit the user link if needed, but usually read-only
     raw_id_fields = ('user',)
+
+    # Remove the custom method since we now have a real field
+    # actions are still useful for bulk updates
+    actions = ['mark_verified', 'mark_unverified']
+
+    @admin.action(description='Mark selected customers as Verified')
+    def mark_verified(self, request, queryset):
+        count = 0
+        for customer in queryset:
+            email_address, created = EmailAddress.objects.get_or_create(
+                user=customer.user, 
+                email=customer.user.email,
+                defaults={'verified': False, 'primary': True}
+            )
+            if not email_address.verified:
+                email_address.verified = True
+                email_address.save()
+                count += 1
+        self.message_user(request, f"{count} customers marked as verified.")
+
+    @admin.action(description='Mark selected customers as Unverified')
+    def mark_unverified(self, request, queryset):
+        count = 0
+        for customer in queryset:
+            # We only update if it exists, we don't necessarily need to create if unverifying?
+            # But consistent behavior is good.
+            email_address = EmailAddress.objects.filter(user=customer.user, email=customer.user.email).first()
+            if email_address and email_address.verified:
+                email_address.verified = False
+                email_address.save()
+                count += 1
+        self.message_user(request, f"{count} customers marked as unverified.")
 
 
 # --- 2. ADDRESS ADMIN ---
@@ -56,13 +90,20 @@ class ProfileInline(admin.StackedInline):
     model = Customer
     can_delete = False
     verbose_name_plural = 'Customer Profile'
+    verbose_name_plural = 'Customer Profile'
     fk_name = 'user'
+
+class EmailAddressInline(admin.StackedInline):
+    model = EmailAddress
+    extra = 0
+    can_delete = False
+    verbose_name_plural = 'Email Addresses'
 
 # Define a new User admin
 
 
 class UserAdmin(BaseUserAdmin):
-    inlines = (ProfileInline,)
+    inlines = (ProfileInline, EmailAddressInline)
 
 
 # Re-register UserAdmin
