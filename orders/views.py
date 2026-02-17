@@ -96,6 +96,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             new_status = OrderStatus.objects.get(status_code=status_code)
             order.order_status = new_status
             order.save()
+
             return Response({
                 'status': 'updated',
                 'new_status': new_status.display_name

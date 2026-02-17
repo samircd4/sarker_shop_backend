@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed - Sarker Shop</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 10px 5px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); padding: 25px 10px;">
+                            <img src="cid:logo_image" alt="Sarker Shop" style="display: block; width: 100%; max-width: 200px; height: auto; margin-bottom: 20px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Order Confirmed</h1>
+                            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">Order #{{ order.id }}</p>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 15px 8px;">
+                            <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 20px;">Hi {{ full_name }},</h2>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Exciting news! Your order has been placed successfully and is now being processed. We'll notify you as soon as it's on its way.
+                            </p>
+
+                            <!-- Order Summary -->
+                            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 10px 8px; margin-bottom: 20px;">
+                                <h3 style="color: #334155; margin: 0 0 15px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Order Summary</h3>
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    {% for item in items %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                         <td style="padding: 6px 0; color: #475569;">
+                                            {{ item.quantity }}x {{ item.product.name }}
+                                            {% if item.variant %}
+                                                {% if item.variant.color or item.variant.ram or item.variant.storage %}
+                                                    <br><span style="font-size: 11px; color: #64748b;">
+                                                        {% if item.variant.color %}{{ item.variant.color }}{% endif %}
+                                                        {% if item.variant.ram %}{% if item.variant.color %} | {% endif %}{{ item.variant.ram }}GB{% endif %}
+                                                        {% if item.variant.storage %}{% if item.variant.color or item.variant.ram %} | {% endif %}{{ item.variant.storage }}GB{% endif %}
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td align="right" style="padding: 6px 0; color: #1e293b; font-weight: 600; font-size: 13px;">BDT {{ item.subtotal }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr>
+                                        <td style="padding: 20px 0 0 0; color: #1e293b; font-weight: 700; font-size: 18px;">Total</td>
+                                        <td align="right" style="padding: 20px 0 0 0; color: #7c3aed; font-weight: 800; font-size: 20px;">BDT {{ total_amount }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- CTA -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ tracking_url }}" style="display: inline-block; padding: 16px 32px; background-color: #7c3aed; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);">
+                                            Track My Order
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="color: #64748b; font-size: 14px; margin: 0;">
+                                &copy; 2026 Sarker Shop. All rights reserved.<br>
+                                Islami Super Market, Kishoreganj
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

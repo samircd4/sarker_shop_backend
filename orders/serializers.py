@@ -123,6 +123,8 @@ class OrderSerializer(serializers.ModelSerializer):
     items_input = serializers.ListField(
         child=serializers.DictField(), write_only=True, required=False
     )
+    
+    save_address = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
         model = Order
@@ -145,7 +147,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'payment_method', 'payment_details',
 
             'items',        # Full objects (Read)
-            'items_input'   # List of dicts (Write)
+            'items_input',   # List of dicts (Write)
+            
+            'save_address'   # Boolean (Write Only)
         ]
         read_only_fields = ['total_amount', 'status', 'payment', 'created_at', 'updated_at']
 
@@ -211,7 +215,32 @@ class OrderSerializer(serializers.ModelSerializer):
             if not validated_data.get('email') and customer:
                 validated_data['email'] = customer.email
 
+        save_address = validated_data.pop('save_address', False)
+
         with transaction.atomic():
+            # If save_address is True and user is authenticated, create an Address object
+            if save_address and user.is_authenticated:
+                try:
+                    from accounts.models import Address, Division, District, SubDistrict
+                    
+                    # Resolve IDs if strings were provided
+                    div_obj = Division.objects.filter(name=validated_data.get('division')).first()
+                    dist_obj = District.objects.filter(name=validated_data.get('district'), division=div_obj).first()
+                    sub_dist_obj = SubDistrict.objects.filter(name=validated_data.get('sub_district'), district=dist_obj).first()
+                    
+                    # Create the address
+                    Address.objects.create(
+                        customer=customer,
+                        full_name=validated_data.get('full_name'),
+                        phone=validated_data.get('phone'),
+                        division=div_obj,
+                        district=dist_obj,
+                        sub_district=sub_dist_obj,
+                        address=validated_data.get('shipping_address'),
+                        address_type=validated_data.get('address_type', 'Home').title()
+                    )
+                except Exception as e:
+                    print(f"Error saving address during checkout: {e}")
             # Create Default Status if needed (or fetch 'pending')
             pending_status, _ = OrderStatus.objects.get_or_create(
                 status_code='pending',
@@ -349,7 +378,6 @@ class OrderSerializer(serializers.ModelSerializer):
                 except Exception:
                     pass
 
-            # Assuming update_total_amount exists on Order model
             if hasattr(order, 'update_total_amount'):
                 order.update_total_amount()
             else:

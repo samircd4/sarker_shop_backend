@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Update - Sarker Shop</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 10px 5px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 25px 10px;">
+                            <img src="cid:logo_image" alt="Sarker Shop" style="display: block; width: 100%; max-width: 200px; height: auto; margin-bottom: 20px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Order {{ order.order_status.display_name }}</h1>
+                            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">Order #{{ order.id }}</p>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 15px 8px;">
+                            <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 20px;">Hi {{ full_name }},</h2>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Your order #{{ order.id }} has been updated! Its current status is now: 
+                                <strong style="color: #7c3aed; font-size: 18px; display: block; margin-top: 10px;">{{ order.order_status.display_name }}</strong>
+                            </p>
+
+                            {% if order.order_status.status_code == 'processing' %}
+                            <div style="background-color: #fefce8; border-left: 4px solid #eab308; padding: 15px; margin-bottom: 30px; border-radius: 0 8px 8px 0;">
+                                <p style="color: #854d0e; margin: 0; font-size: 15px;">
+                                    <strong>We're on it!</strong> Your order is currently being prepared and packed with care.
+                                </p>
+                            </div>
+                            {% elif order.order_status.status_code == 'shipped' %}
+                            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 30px; border-radius: 0 8px 8px 0;">
+                                <p style="color: #1e40af; margin: 0; font-size: 15px;">
+                                    <strong>Out for delivery!</strong> Your package is on its way to you. Make sure someone is available to receive it.
+                                </p>
+                            </div>
+                            {% elif order.order_status.status_code == 'delivered' %}
+                            <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 15px; margin-bottom: 30px; border-radius: 0 8px 8px 0;">
+                                <p style="color: #166534; margin: 0; font-size: 15px;">
+                                    <strong>Order Delivered!</strong> We hope you love your new gadgets! 🎊
+                                </p>
+                            </div>
+                            {% elif order.order_status.status_code == 'cancelled' %}
+                            <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin-bottom: 30px; border-radius: 0 8px 8px 0;">
+                                <p style="color: #991b1b; margin: 0; font-size: 15px;">
+                                    <strong>Order Cancelled.</strong> Your order has been cancelled. If this was a mistake, please contact our support team.
+                                </p>
+                            </div>
+                            {% elif order.order_status.status_code == 'returned' %}
+                            <div style="background-color: #f8fafc; border-left: 4px solid #64748b; padding: 15px; margin-bottom: 30px; border-radius: 0 8px 8px 0;">
+                                <p style="color: #334155; margin: 0; font-size: 15px;">
+                                    <strong>Order Returned.</strong> We have processed the return for your order.
+                                </p>
+                            </div>
+                            {% endif %}
+
+                            <!-- Order Summary -->
+                            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 10px 8px; margin-bottom: 20px;">
+                                <h3 style="color: #334155; margin: 0 0 15px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Order Summary</h3>
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    {% for item in items %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                         <td style="padding: 6px 0; color: #475569;">
+                                            {{ item.quantity }}x {{ item.product.name }}
+                                            {% if item.variant %}
+                                                {% if item.variant.color or item.variant.ram or item.variant.storage %}
+                                                    <br><span style="font-size: 11px; color: #64748b;">
+                                                        {% if item.variant.color %}{{ item.variant.color }}{% endif %}
+                                                        {% if item.variant.ram %}{% if item.variant.color %} | {% endif %}{{ item.variant.ram }}GB{% endif %}
+                                                        {% if item.variant.storage %}{% if item.variant.color or item.variant.ram %} | {% endif %}{{ item.variant.storage }}GB{% endif %}
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td align="right" style="padding: 6px 0; color: #1e293b; font-weight: 600; font-size: 13px;">BDT {{ item.subtotal }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr>
+                                        <td style="padding: 20px 0 0 0; color: #1e293b; font-weight: 700; font-size: 18px;">Total</td>
+                                        <td align="right" style="padding: 20px 0 0 0; color: #7c3aed; font-weight: 800; font-size: 20px;">BDT {{ total_amount }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- CTA -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ tracking_url }}" style="display: inline-block; padding: 16px 32px; background-color: #7c3aed; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);">
+                                            View Order Details
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="color: #64748b; font-size: 14px; margin: 0;">
+                                &copy; 2026 Sarker Shop. All rights reserved.<br>
+                                Islami Super Market, Kishoreganj
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>We'd Love Your Feedback! - Sarker Shop</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 10px 5px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 25px 10px;">
+                            <img src="cid:logo_image" alt="Sarker Shop" style="display: block; width: 100%; max-width: 180px; height: auto; margin-bottom: 15px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">How did we do?</h1>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 15px 10px;">
+                            <h2 style="color: #1e293b; margin: 0 0 15px 0; font-size: 18px;">Hi {{ full_name }},</h2>
+                            <p style="color: #475569; font-size: 15px; line-height: 1.5; margin: 0 0 20px 0;">
+                                Your recent order #{{ order.id }} has been delivered! We hope you're loving your new gadgets.
+                            </p>
+                            <p style="color: #475569; font-size: 15px; line-height: 1.5; margin: 0 0 25px 0;">
+                                Could you take a moment to share your experience? Your feedback helps us improve and serves as a guide for other tech lovers.
+                            </p>
+
+                            <!-- CTA -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ feedback_url }}" style="display: inline-block; padding: 14px 28px; background-color: #7c3aed; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);">
+                                            Leave a Review
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Order Summary -->
+                            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 10px; margin-top: 30px;">
+                                <h3 style="color: #334155; margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase;">Items Ordered</h3>
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    {% for item in items %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 10px 0; color: #475569; font-size: 13px;">
+                                            {{ item.quantity }}x {{ item.product.name }}
+                                        </td>
+                                        <td align="right" style="padding: 10px 0;">
+                                            <a href="{{ frontend_url }}/products/{{ item.product.slug }}/?tab=reviews" style="display: inline-block; padding: 6px 14px; background-color: #7c3aed; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 12px;">
+                                                Review
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="color: #64748b; font-size: 12px; margin: 0;">
+                                &copy; 2026 Sarker Shop. All rights reserved.<br>
+                                Islami Super Market, Kishoreganj
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -44,7 +44,9 @@ class ProductViewSet(viewsets.ModelViewSet):
     # ✅ ONLY REAL DB FIELDS
     filterset_fields = {
         'category': ['exact'],
+        'category__slug': ['exact'],
         'brand': ['exact'],
+        'brand__slug': ['exact'],
         'is_featured': ['exact'],
         'is_bestseller': ['exact'],
         'is_active': ['exact'],
