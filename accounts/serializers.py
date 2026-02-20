@@ -231,3 +231,12 @@ class SubDistrictSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubDistrict
         fields = ['id', 'district', 'name', 'bn_name']
+
+
+class ResendVerificationEmailSerializer(serializers.Serializer):
+    """Admin can supply any email to resend the verification link to."""
+    email = serializers.EmailField(
+        required=True,
+        help_text="Email address to resend the verification link to."
+    )
+

@@ -6,7 +6,7 @@ from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
 from django.urls import reverse
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, permissions, status, viewsets, views
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.templatetags.static import static
@@ -33,10 +33,11 @@ def attach_logo(email_message):
 
 from .models import Customer, Address, Division, District, SubDistrict
 from .serializers import (
-    RegisterSerializer, CustomerSerializer, AddressSerializer,
+    RegisterSerializer, CustomerSerializer,
+    AddressSerializer, DivisionSerializer, DistrictSerializer, SubDistrictSerializer,
     ChangePasswordSerializer, LogoutSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,
+    ResendVerificationEmailSerializer,
     CustomTokenObtainPairSerializer,
-    DivisionSerializer, DistrictSerializer, SubDistrictSerializer
 )
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -50,7 +51,7 @@ from allauth.account.models import EmailAddress
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
     client_class = OAuth2Client
-    callback_url = "http://localhost:5173" # Update for production
+    callback_url = settings.FRONTEND_URL  # Read from FRONTEND_URL in .env
 
 class FacebookLogin(SocialLoginView):
     adapter_class = FacebookOAuth2Adapter
@@ -92,7 +93,7 @@ class RegisterView(generics.CreateAPIView):
                 token = default_token_generator.make_token(user)
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
                 
-                frontend_url = "http://localhost:5173"
+                frontend_url = settings.FRONTEND_URL
                 verify_link = f"{frontend_url}/verify-email/?uid={uid}&token={token}"
                 
                 full_name = request.data.get('full_name', 'User')
@@ -251,9 +252,8 @@ class ForgotPasswordView(generics.GenericAPIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             
             # Build reset link (Frontend URL)
-            # Assuming frontend runs on localhost:5173 for development or configured URL
-            # We can use a setting or hardcode for now based on the plan
-            frontend_url = "http://localhost:5173" # Update this for production
+            # Frontend URL from .env
+            frontend_url = settings.FRONTEND_URL
             reset_link = f"{frontend_url}/password-reset-confirm/?uid={uid}&token={token}"
             
             # Render HTML Template
@@ -352,28 +352,38 @@ class VerifyEmailView(generics.GenericAPIView):
 
 class ResendVerificationEmailView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = None # No request body needed
+    serializer_class = ResendVerificationEmailSerializer
 
     @extend_schema(
         summary="Resend Verification Email",
-        description="Resends the email verification link to the currently logged-in user.",
+        description="Admin or authenticated user can supply any email address to resend the verification link.",
         responses={200: OpenApiTypes.OBJECT}
     )
     def post(self, request):
-        user = request.user
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         
+        email = serializer.validated_data['email']
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "No account found with this email address."}, status=status.HTTP_404_NOT_FOUND)
+
         # Ensure EmailAddress object exists
         from allauth.account.models import EmailAddress
-        email_address, created = EmailAddress.objects.get_or_create(user=user, email=user.email, defaults={'verified': False, 'primary': True})
-        
-        if email_address.verified:
-             return Response({"message": "Email is already verified."}, status=status.HTTP_200_OK)
+        email_address, created = EmailAddress.objects.get_or_create(
+            user=user, email=user.email,
+            defaults={'verified': False, 'primary': True}
+        )
 
-        # Send Verification Email (Manual)
+        if email_address.verified and not request.user.is_staff:
+            return Response({"message": "Email is already verified."}, status=status.HTTP_200_OK)
+
+        # Build verification link
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        
-        frontend_url = "http://localhost:5173" # Should verify logic uses settings in prod
+        frontend_url = settings.FRONTEND_URL
         verify_link = f"{frontend_url}/verify-email/?uid={uid}&token={token}"
 
         # Render HTML Template
@@ -402,8 +412,8 @@ class ResendVerificationEmailView(generics.GenericAPIView):
         except Exception as e:
             print(f"Failed to send verification email: {e}")
             return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        return Response({"message": "Verification email sent."}, status=status.HTTP_200_OK)
+
+        return Response({"message": f"Verification email sent to {email}."}, status=status.HTTP_200_OK)
 
 # --- Profile Views ---
 

@@ -13,10 +13,8 @@ def send_order_email(order, template_name, subject):
         print(f"No email found for order {order.id}")
         return
 
-    # Determine frontend URL for tracking link
-    frontend_url = "http://localhost:5173"
-    if hasattr(settings, 'CORS_ALLOWED_ORIGINS') and settings.CORS_ALLOWED_ORIGINS:
-        frontend_url = settings.CORS_ALLOWED_ORIGINS[0]
+    # Determine frontend URL from settings (set via FRONTEND_URL in .env)
+    frontend_url = settings.FRONTEND_URL
 
     context = {
         'order': order,

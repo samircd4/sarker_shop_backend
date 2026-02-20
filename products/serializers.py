@@ -129,9 +129,6 @@ class ProductSerializer(serializers.ModelSerializer):
     reviews = ReviewSerializer(many=True, read_only=True)
     questions = QuestionSerializer(many=True, read_only=True)
 
-    price = serializers.SerializerMethodField(read_only=True)
-    wholesale_price = serializers.SerializerMethodField()
-    discount_price = serializers.SerializerMethodField()
 
     # ---------- WRITE ONLY INPUT ----------
     brand_id = serializers.PrimaryKeyRelatedField(
@@ -182,44 +179,30 @@ class ProductSerializer(serializers.ModelSerializer):
             'related_products',
 
             'rating', 'reviews_count', 'reviews', 'questions',
-            'product_type', 'is_featured', 'is_bestseller', 'is_active',
+            'product_type', 'stock_quantity', 'is_featured', 'is_bestseller', 'is_active',
             'created_at', 'updated_at',
         ]
 
-    # ---------- PRICE LOGIC ----------
-    def get_price(self, obj):
-        discount = obj.display_discount_price
-        if discount:
-            return discount
-
-        if obj.variants.exists():
-            prices = obj.variants.exclude(
-                price__isnull=True).values_list('price', flat=True)
-            return min(prices) if prices else obj.price
-
-        return obj.price
-
-    def get_wholesale_price(self, obj):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        
+        # Override display values with smart logic from model properties
+        data['price'] = instance.display_price
+        data['discount_price'] = instance.display_discount_price
+        
+        # Wholesale visibility logic
         request = self.context.get('request')
         is_wholesaler = False
         if request and request.user and request.user.is_authenticated:
-            if request.user.is_staff:
-                is_wholesaler = True
-            elif hasattr(request.user, 'customer') and request.user.customer.is_wholesaler:
+            if request.user.is_staff or (hasattr(request.user, 'customer') and request.user.customer.is_wholesaler):
                 is_wholesaler = True
         
         if is_wholesaler:
-            return obj.display_wholesale_price
-        return None
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        if data.get('wholesale_price') is None:
+            data['wholesale_price'] = instance.display_wholesale_price
+        else:
             data.pop('wholesale_price', None)
+            
         return data
-
-    def get_discount_price(self, obj):
-        return obj.display_discount_price
 
     # ---------- CREATE ----------
     def create(self, validated_data):

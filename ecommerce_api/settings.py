@@ -11,9 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables
+load_dotenv(BASE_DIR / '.env', override=True)
 
 
 # Quick-start development settings - unsuitable for production
@@ -276,6 +281,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/admin/login/'
 API_BASE_URL = "http://127.0.0.1:8000/api"
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 REST_AUTH = {
     'USE_JWT': True,
@@ -284,20 +290,39 @@ REST_AUTH = {
 }
 
 # Email Backend (SMTP for Production)
-import os
-
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Sarker Shop <no-reply@sarkershop.com>')
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+
+# Security settings - mutually exclusive
+# Use SSL for port 465, TLS for 587
+def _bool(val, default):
+    if val is None: return default
+    return str(val).lower() in ['true', '1', 'yes', 't', 'y']
+
+if EMAIL_PORT == 465:
+    EMAIL_USE_SSL = _bool(os.getenv('EMAIL_USE_SSL'), True)
+    EMAIL_USE_TLS = False
+else:
+    EMAIL_USE_SSL = False
+    EMAIL_USE_TLS = _bool(os.getenv('EMAIL_USE_TLS'), True)
 
 # Allauth / Social Account Settings
 ACCOUNT_EMAIL_VERIFICATION = 'optional'  # Changed from 'none' to 'optional'
-ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+
+# Modern field configuration (silences deprecation warnings)
+ACCOUNT_SIGNUP_FIELDS = {
+    'username': {'required': False},
+    'email': {'required': True},
+    'password1': {'required': True},
+    'password2': {'required': True},
+}
 ACCOUNT_USER_MODEL_UNIQUE_EMAIL = True
 ACCOUNT_MAX_EMAIL_ADDRESSES = 1
 

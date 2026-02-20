@@ -77,7 +77,25 @@ class Product(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Used only for simple products"
+        help_text="Base price for simple products"
+    )
+    wholesale_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Wholesale price for simple products"
+    )
+    discount_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Discounted price for simple products"
+    )
+    stock_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Stock quantity for simple products"
     )
 
     product_type = models.CharField(
